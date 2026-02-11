@@ -1,0 +1,133 @@
+[RUN CONFIG]
+Model: GPT-5.3-Codex (Codex 5.3)
+Reasoning: HIGH
+Temperature: 0.0
+Max tokens: Large (allow full site generation)
+Output format: Single ZIP-style project listing + file contents
+App environment: Codex App on macOS — produce a ready-to-import Wix Velo project layout.
+Notes for runner: produce machine-parseable file headers (=== FILE: path/to/file ===), then file contents. Keep each file self-contained and annotate any places where keys or external services are required.
+
+[OVERVIEW — Mission]
+Build a **page-focused**, production-quality **Wix Velo** website for **SafariMatcher.com** — a consumer travel discovery & review site for safari tours and wildlife lodges. The result must **look and feel like a real travel brand** (TripAdvisor / premium travel magazine), editorial and photo-forward, NOT an admin dashboard or an AI-generated tooling UI.
+
+Important constraints:
+- **Do NOT implement any matching algorithm or matching frontend.** Only create page placeholders and a documented *client-side* placeholder function `public/utils/matchingPlaceholder.js` that returns a well-documented fixed-format placeholder response. Do not implement algorithmic matching or show algorithmic results anywhere in the UI.
+- **Do NOT create admin UIs or moderation dashboards.** Admin tasks are to be manually handled via Wix Collections (documented in README).
+- **Do NOT use the word "collins" anywhere** in generated UI copy or filenames.
+- **Remove all backend/server files** — do not include `backend/` or `.jsw` files. If server-side work is advisable, document how/where to add it in README and provide client-side safe fallbacks.
+- Include Feedback & FAQ public pages with collection-backed behavior.
+- Use Wix Velo idioms and APIs (`$w`, `wix-data`, `wix-users`, `wix-location`, `wix-fetch` where needed).
+- Implement subtle, high-quality UI animations and scroll effects as described below.
+
+[TONE & DESIGN GOALS]
+- Photo-first, editorial, warm, trustworthy, adventurous, premium but welcoming.
+- Avoid database/table aesthetics; prefer hero photography, card-based listings, storytelling sections, and micro-interactions.
+- Mobile-first responsive design and WCAG-friendly accessibility.
+- Animations must be subtle, non-distracting, and performant; include an accessible “reduce motion” fallback.
+
+[SCOPE — Deliver exactly the items below (NO backend)]
+1. README.md — setup, import steps, API key placements, where to paste each file in Wix Editor, which parts are placeholders vs production-ready, and guidance for adding server-side modules later if desired.
+2. Project tree (zip-style) with file contents. Required files and folders (no backend/ folder):
+   - public/pages/* — page code (Home, Discover, TourDetail, LodgeDetail, ReviewsStories, Blog, About, Community, PartnerWithUs, Feedback, FAQ, Contact, TermsPrivacy)
+   - public/components/* — reusable components (Hero, Card, FilterDrawer, ReviewBlock, FAQAccordion, AnimatedImage)
+   - public/utils/* — client-side utilities and stubs (seedImportClient.js, matchingPlaceholder.js, animations.js)
+   - routers.js — custom router + sitemap endpoint (client-usable router file for Wix Velo)
+   - collections/seed-data.json — all collection schemas + sample rows (Tours, Lodges, Reviews, Users, Operators, BlogPosts, Feedback, FAQ)
+   - design-specs.md — color tokens, typography scale, spacing, component specs, animation notes
+   - assets/* — placeholder image references or data URIs for quick preview
+   - tests/manual-checklist.md — manual QA checklist and test stubs
+3. Full code for each page/component with comments, using Velo patterns (client-side only).
+4. JSON-LD and SEO meta per item page (Tour, Lodge, Review).
+5. Debounced search and UI filters (client-side controls; use `wix-data.query()`).
+6. Reviews: public submission saves to Reviews collection via client `wix-data.insert()`; status = "approved" by default (no moderation UI). Client-side spam protections (honeypot + rate-limit note). Document optional server-side rate-limiting in README (do not include server code).
+7. Feedback: Feedback collection + client-side `wix-data.insert()` submission handler; validate client-side and provide server-side notes in README for production notification (email/webhook).
+8. FAQ: Collection-backed searchable accordion with keyboard accessibility and highlight-on-search.
+9. Map integration sample (Mapbox or Leaflet) documented — optional and keyed in README; if API key absent, fall back to accessible address text.
+10. matchingPlaceholder.js: client-side placeholder function at `public/utils/matchingPlaceholder.js` (accepts `{preferences, userId}` and returns fixed-format placeholder or an HTTP 501-style object). Provide example front-end code that **only** calls the placeholder and renders a friendly CTA/link to Discover — do not show algorithmic results.
+11. Seed data: include 6 tours, 4 lodges, 8 reviews, 3 operators, 3 blog posts, 8 FAQ entries, and 6 feedback example entries.
+12. Design system: color tokens, one accent, typography suggestions (Google fonts recommended), spacing scale, accessible color contrasts.
+13. Performance & Accessibility notes and in-code best-practices comments (lazy loading, fetch limited fields, caching suggestions).
+
+[ANIMATIONS & EFFECTS — SPECIFIC & MANDATORY]
+Implement subtle, performant UI animations across the site with these exact behaviors. Where Wix Velo native functions exist, prefer them; where CSS is required, use an embedable HTML component or element-level transitions that Wix supports. Always include reduced-motion support and an option to disable animations.
+
+1. **Hero parallax** — slight parallax on hero background image when user scrolls (max translate of ~20px). Fallback: static hero if parallax not available. Prefer Velo `onViewportEnter` + lightweight transform via requestAnimationFrame or CSS transform on an HTML element inside an HTML component for performance.
+2. **Card hover** — on listing cards, animate:
+   - scale up to ~1.03,
+   - increase box-shadow depth,
+   - translateY up by 6–10px,
+   - subtle image brightness increase.
+   Implement via `onMouseIn`/`onMouseOut` handlers or CSS in an HTML component. Ensure hover effects are disabled on touch devices.
+3. **Image hover micro-zoom** — gallery and hero thumbnails should have gentle zoom on hover (scale 1.05) and smooth transition (200–300ms).
+4. **Scroll reveal** — elements (cards, story blocks, review blocks) fade/slide in when entering the viewport with staggered delays (50–120ms). Use `$w``onViewportEnter` where appropriate or IntersectionObserver polyfill in `public/utils/animations.js` if more control is required.
+5. **Sticky subtle nav animation** — as user scrolls past hero, navbar should transition to a compact state (reduce height, slight background blur / color shift). Use `wix-window` scroll events or `wix-location` to toggle classes.
+6. **Micro-interactions** — buttons have subtle press animation (scale down ~0.98) and accessible focus states; links have underline slide-in on hover.
+7. **Performance constraints**:
+   - Use `transform` and `opacity` only for animations to leverage the GPU.
+   - Use `will-change` sparingly and remove when not needed.
+   - Debounce scroll handlers and use `requestAnimationFrame` for transforms.
+   - Respect `prefers-reduced-motion` — disable non-essential animations when detected.
+8. **Implementation note**: Because Wix restricts global CSS, Codex should implement animations using:
+   - `$w('#element').onMouseIn` / `.onMouseOut` to toggle CSS classes on HTML components, or
+   - `HTML` component snippets for elements requiring custom CSS transforms, or
+   - Velo's `$w('#el').show('fade', duration)` for simple reveals; and `$w('#el').onViewportEnter` for scroll triggers.
+   Include clear comments for each approach and a consistent `animations.js` utility that centralizes animation parameters and reduced-motion detection.
+
+[DETAILED REQUIREMENTS — technical (client-only)]
+- Use `wix-data.query()` for search & filters, implement pagination (skip/limit). Include a debounced text search (300ms).
+- Filters: region, priceFrom (range), durationDays (range), ratingAvg (min), amenities (multi-select chips). UI: drawer or side panel on desktop; collapsible accordion on mobile.
+- Dynamic routes: `/tour/{slug}`, `/lodge/{slug}` via `routers.js`. Implement sitemap endpoint `/sitemap.xml` using router exports.
+- Images: use Wix Media Manager; implement image galleries with lazy loading (`loading="lazy"` where possible) and aspect-ratio containers.
+- Maps: client-side sample integration with Mapbox; fall back to address text when key absent.
+- Reviews & Feedback: use `wix-data.insert()` to write to collections; include client-side validation and spam protection (honeypot input + rate-limiting note in README). No server code included.
+- Rating aggregation: include client-side helper that recomputes ratingAvg and reviewCount after inserting a review by querying reviews and updating the parent item via `wix-data.update()` — document that production should move this to server-side for consistency and race-condition prevention (README).
+- No backend modules or server files included. Any server-side necessity must be documented in README with sample pseudocode and where to place server files later.
+
+[COLLECTION SCHEMAS (examples — include in seed-data.json)]
+- Tours: {_id, title, slug, shortDescription, longDescription, country, region, durationDays, priceFrom, amenities[], images[], operatorId, ratingAvg, reviewCount, featured, tags[]}
+- Lodges: {_id, title, slug, location, shortDesc, longDesc, starRating, images[], capacity, amenities[], operatorId, ratingAvg, reviewCount, tags[]}
+- Reviews: {_id, itemId (ref), itemType ("tour"|"lodge"), userId, rating (1-5), title, body, status ("approved"), createdAt}
+- Feedback: {_id, name, email, type ("bug"|"suggestion"|"praise"|"other"), message, createdAt}
+- FAQ: {_id, question, answer, tags[], order, updatedAt}
+- Operators: {_id, name, logo, website, description, verified}
+- Users: {_id, displayName, avatar, bio}
+- BlogPosts: {_id, title, slug, excerpt, content, heroImage, authorId, publishDate, tags[]}
+
+[MATCHING NOTE — explicit]
+- Repeat: **Do not implement matching logic or a matching UI.**
+  - Create a **client-side placeholder** at `public/utils/matchingPlaceholder.js` that accepts `{preferences, userId}` and returns a fixed-format placeholder object (or a `{ status: 501, message: "Not Implemented" }` response).
+  - Provide example front-end code that calls the placeholder and renders only a friendly card with: "Matching service not yet connected — see curated picks" linking to Discover. Do not display any algorithmic matching results.
+
+[DESIGN & UX]
+- Photo-forward, editorial layout: large hero photography, card-based listings, editorial blocks for itineraries and stories.
+- Microcopy must read like a real travel brand; provide polished placeholder copy.
+- Visual system: neutral palette + single accent color, generous whitespace, rounded cards, soft shadows, subtle transitions.
+- Mobile-first responsive breakpoints; filters collapse into an accessible drawer on small screens.
+
+[OUTPUT FORMAT & ORGANIZATION (strict)]
+- Provide the full file tree layout and paste the contents of each file (or clearly labeled snippets) using this format:
+  === FILE: path/to/file ===
+  <file contents>
+- For each page, include both:
+  - a short "Wix Editor elements checklist" (which elements to add to the page and their IDs), and
+  - the Velo page code file (e.g., `public/pages/HomePage.js`) that binds to those elements using `$w`.
+- For animations, include `public/utils/animations.js` and use it from pages/components.
+- For seed-data.json, provide valid JSON that can be imported into Wix Collections (array of named collections).
+- At the top of README, include a quick checklist: "Paste these files into Wix Dev Mode → Create Collections named X, import `seed-data.json`, enable routers, upload assets, set API keys".
+
+[QUALITY & SAFETY]
+- Use clear, production-ready variable & function names. Add inline comments explaining why decisions were made.
+- Sanitize user inputs and document security considerations in README.
+- Accessibility: ARIA labels, keyboard support for filters & accordion, and contrast checks noted in design-specs.md.
+- Do not include any copyrighted text verbatim beyond short UI copy. Use short placeholder copy and clearly label it as sample content.
+
+[BEHAVIORAL/STYLE CONSTRAINTS]
+- Do not output extra commentary beyond the ZIP-style file output and a brief 3-line execution summary at the very top.
+- Do not invent or call proprietary Wix APIs that do not exist; where naming differs, choose documented Velo APIs and annotate in README.
+- Avoid the word "collins" anywhere.
+
+[ENDING]
+- End with a final short summary (max 3 lines) listing:
+  1) Files generated
+  2) Next step for user (import seed-data, enable Dev Mode)
+  3) Location of matching placeholder and how to replace it.
