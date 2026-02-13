@@ -1,0 +1,3969 @@
+<!DOCTYPE html>
+<!--
+Changelog: 2026-01-16 — Multi-module Spanish practice (Numbers + Command tone + Vocab + Reflexive + Tenses), hidden-question persistence, accent toolbar, import/export/reset (single-file, localStorage only).
+
+localStorage schema (key: spanishPracticeApp_v1):
+{
+  "version": 1,
+  "settings": {
+    "modulesEnabled": { "numbers": true, "commands": false, "vocab": false, "reflexive": false, "tenses": false },
+    "tensesEnabled": { "present": true, "preterite": false, "imperfect": false },
+    "vocabMode": "weighted" | "uniform",
+    "firstRunSeen": false
+  },
+  "hiddenQuestions": {
+    "number-17": true,
+    "vocab-pelo": true,
+    "conj-llamarse-present-3s": true,
+    "cmd-hablar-usted-pos": true
+  },
+  "vocabChecksum": "fnv1a32-of-quizlet-block",
+  "userStats": { "vocab-pelo": { "attempts": 3, "correct": 2 } }
+}
+
+Manual test checklist:
+[ ] Toggle modules and confirm rotation includes only enabled modules.
+[ ] Mark item as hidden, reload page → item must not reappear.
+[ ] Export hidden list → reset storage → import hidden list → hidden items restored.
+[ ] Accent insertion buttons insert at cursor; Enter submits.
+[ ] Numbers module functions as before for 1–1000 (Reveal / Similar-next-number behavior).
+[ ] Confirm pure-number vocab entries (e.g., "Treinta ↔ Thirty") were excluded, but phrases like "Es la una ↔ It's one o'clock" are INCLUDED.
+[ ] Hide every item in a module → module auto-disables with a banner + "Restore hidden" option.
+
+Vocab parsing instructions:
+- The Quizlet block below is parsed as pairs: Spanish line, then English line. Entries are separated by one or more blank lines.
+- Pure-number cards are automatically excluded from Vocab practice (to avoid duplicating the Numbers 1–1000 module).
+  (User note: phrases that merely CONTAIN numbers, like time expressions, are kept.)
+- To replace/update the list: edit the QUIZLET_VOCAB_BLOCK string in the JS section (search for "QUIZLET_VOCAB_BLOCK").
+
+Demo parsed vocab (example objects; your list will be larger):
+[
+  { id: "vocab-la-pared", sp: "La Pared", en: "The Wall", normS: 0.41 },
+  { id: "vocab-el-lapiz", sp: "El Lápiz", en: "The Pencil", normS: 0.37 }
+]
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spanish Practice (Single‑file)</title>
+  <style>
+    :root{
+      --bg:#f5f7fb;
+      --surface:#ffffff;
+      --surface-2:#f8fafc;
+      --text:#0f172a;
+      --muted:#475569;
+      --border:#e2e8f0;
+      --shadow:0 10px 30px rgba(15,23,42,.10);
+
+      --primary:#2563eb;      /* blue */
+      --primary-2:#1d4ed8;
+      --good:#16a34a;         /* green */
+      --warn:#f59e0b;         /* amber */
+      --danger:#dc2626;       /* red */
+
+      --focus: #93c5fd;       /* focus ring */
+      --radius: 14px;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(1200px 600px at 20% 0%, #eef2ff 0%, transparent 60%),
+                  radial-gradient(1200px 600px at 80% 20%, #ecfeff 0%, transparent 55%),
+                  var(--bg);
+      color:var(--text);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:22px;
+    }
+
+    a{color:var(--primary)}
+    .app{
+      width:100%;
+      max-width:780px;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+    }
+
+    /* Top bar */
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:14px 16px;
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      background: rgba(255,255,255,.75);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 1px 0 rgba(15,23,42,.04);
+    }
+    .brand{display:flex; flex-direction:column; gap:2px; min-width:0}
+    .brand .title{font-weight:800; letter-spacing:.2px}
+    .brand .subtitle{color:var(--muted); font-size:.92rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+
+    .top-actions{display:flex; align-items:center; gap:10px}
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      border:1px solid var(--border);
+      background: #ffffff;
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:.9rem;
+      font-weight:700;
+    }
+    .chip .dot{width:9px; height:9px; border-radius:999px; background:var(--primary)}
+    .meta{
+      color:var(--muted);
+      font-size:.85rem;
+      margin-left:8px;
+      white-space:nowrap;
+    }
+
+    .icon-btn{
+      width:40px;height:40px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:#fff;
+      cursor:pointer;
+      font-size:16px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow: 0 1px 0 rgba(15,23,42,.05);
+    }
+    .icon-btn:hover{background:var(--surface-2)}
+    .icon-btn:active{transform: translateY(1px)}
+    .icon-btn:focus-visible{outline:3px solid var(--focus); outline-offset:2px}
+
+    /* Banner */
+    .banner{
+      border:1px solid #fde68a;
+      background:#fffbeb;
+      border-radius: var(--radius);
+      padding:12px 14px;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      box-shadow: 0 1px 0 rgba(15,23,42,.05);
+    }
+    .banner strong{display:block; margin-bottom:4px}
+    .banner .banner-actions{display:flex; gap:8px; flex-wrap:wrap}
+    .banner .banner-actions button{white-space:nowrap}
+
+    /* Card */
+    .card{
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      padding:18px;
+    }
+
+    .top-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:12px;
+      flex-wrap:wrap;
+    }
+    .counts{
+      color:var(--muted);
+      font-size:.9rem;
+    }
+    .counts code{background:#f1f5f9; padding:2px 6px; border-radius:8px}
+
+    .only-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+      margin-bottom:14px;
+    }
+
+    /* Buttons */
+    .btn{
+      border:1px solid var(--border);
+      background:#fff;
+      border-radius:12px;
+      padding:10px 12px;
+      cursor:pointer;
+      font-weight:800;
+      letter-spacing:.1px;
+      color:var(--text);
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+    .btn:hover{background:var(--surface-2)}
+    .btn:active{transform: translateY(1px)}
+    .btn:focus-visible{outline:3px solid var(--focus); outline-offset:2px}
+    .btn.primary{background:var(--primary); border-color:var(--primary); color:#fff}
+    .btn.primary:hover{background:var(--primary-2)}
+    .btn.warn{background:var(--warn); border-color:var(--warn); color:#111827}
+    .btn.danger{background:var(--danger); border-color:var(--danger); color:#fff}
+    .btn.ghost{background:transparent}
+    .btn.small{padding:8px 10px; border-radius:10px; font-weight:800; font-size:.9rem}
+    .btn[disabled]{opacity:.55; cursor:not-allowed; transform:none}
+
+    .divider{height:1px;background:var(--border); margin:12px 0}
+
+    /* Titles */
+    h2{margin:0 0 8px; font-size:1.1rem}
+    p.lead{margin:0 0 14px; color:var(--muted)}
+
+    /* Active question controls */
+    .never-row{
+      display:flex;
+      justify-content:flex-end;
+      margin:6px 0 8px;
+    }
+
+    /* Numbers module UI (keeps original behavior/UX, restyled) */
+    .display{
+      font-size:2.4rem;
+      padding:18px;
+      border-radius:12px;
+      background:var(--surface-2);
+      border:1px solid var(--border);
+      margin:12px 0 10px;
+      text-align:center;
+    }
+    .spanish{
+      min-height:1.7em;
+      font-weight:900;
+      letter-spacing:.2px;
+      text-align:center;
+      margin-bottom:12px;
+    }
+    .controls{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:6px}
+    .hint{margin-top:12px; color:var(--muted); font-size:.92rem}
+    .keys{margin-top:10px; color:var(--muted); font-size:.88rem}
+    .practice-indicator{margin-top:8px; color:#92400e; font-weight:900; min-height:1.3em}
+
+    /* QA (text / mcq) */
+    .qa-wrap{display:flex; flex-direction:column; gap:10px}
+    .accent-toolbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      align-items:center;
+      margin-bottom:6px;
+    }
+    .accent-toolbar .btn.small{font-weight:900; min-width:44px; justify-content:center}
+    .input-row{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    input[type="text"]{
+      flex:1;
+      min-width:240px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:12px 12px;
+      font-size:1rem;
+      outline:none;
+      background:#fff;
+    }
+    input[type="text"]:focus-visible{outline:3px solid var(--focus); outline-offset:2px}
+
+    .actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:4px;
+    }
+
+    .feedback{
+      border:1px solid var(--border);
+      background:var(--surface-2);
+      border-radius:12px;
+      padding:12px;
+      color:var(--text);
+      line-height:1.35;
+      min-height:3.2em;
+    }
+    .feedback.good{border-color:#bbf7d0; background:#f0fdf4}
+    .feedback.bad{border-color:#fecaca; background:#fef2f2}
+    .feedback.neutral{border-color:var(--border); background:var(--surface-2)}
+    .feedback small{color:var(--muted)}
+
+    /* MCQ */
+    .mcq{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      margin:6px 0;
+    }
+    .mcq-option{
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px 12px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      cursor:pointer;
+      background:#fff;
+    }
+    .mcq-option:hover{background:var(--surface-2)}
+    .mcq-option input{transform:scale(1.15)}
+    .mcq-option:has(input:focus-visible){outline:3px solid var(--focus); outline-offset:2px}
+
+    /* Modals */
+    .modal-overlay{
+      position:fixed;
+      inset:0;
+      background:rgba(15,23,42,.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      z-index:1000;
+    }
+    .modal{
+      width:min(720px, 100%);
+      max-height: min(84vh, 900px);
+      overflow:auto;
+      background:#fff;
+      border-radius:16px;
+      border:1px solid var(--border);
+      box-shadow: 0 18px 50px rgba(0,0,0,.35);
+      padding:16px;
+      position:relative;
+    }
+    .modal-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      padding-bottom:8px;
+      border-bottom:1px solid var(--border);
+      margin-bottom:12px;
+    }
+    .modal h3{margin:14px 0 8px}
+    .modal p{color:var(--muted); margin:0 0 10px}
+    .modal .row{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
+
+    .toggle{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:10px 12px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:#fff;
+      margin-bottom:8px;
+    }
+    .toggle .label{font-weight:900}
+    .toggle .desc{color:var(--muted); font-size:.9rem; margin-top:2px}
+    .switch{
+      position:relative;
+      width:46px;height:28px;
+      background:#e5e7eb;
+      border-radius:999px;
+      border:1px solid var(--border);
+      cursor:pointer;
+      flex: 0 0 auto;
+    }
+    .switch::after{
+      content:"";
+      position:absolute;
+      top:3px; left:3px;
+      width:22px; height:22px;
+      border-radius:999px;
+      background:#fff;
+      box-shadow:0 2px 6px rgba(15,23,42,.18);
+      transition: transform .18s ease;
+    }
+    .toggle input{display:none}
+    .toggle input:checked + .switch{background:#bfdbfe; border-color:#93c5fd}
+    .toggle input:checked + .switch::after{transform: translateX(18px)}
+    .toggle input:focus-visible + .switch{outline:3px solid var(--focus); outline-offset:2px}
+
+    .hr{height:1px;background:var(--border); margin:14px 0}
+
+    /* Hidden list */
+    .hidden-list{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      margin-top:8px;
+    }
+    .hidden-item{
+      display:flex;
+      align-items:flex-start;
+      gap:10px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px 12px;
+      background:#fff;
+    }
+    .hidden-item code{
+      background:#f1f5f9;
+      padding:2px 6px;
+      border-radius:8px;
+      margin-left:8px;
+    }
+    .hidden-item label{cursor:pointer}
+    .muted{color:var(--muted)}
+    .small{font-size:.9rem}
+
+    /* Footer microcopy */
+    .footer{
+      text-align:center;
+      color:var(--muted);
+      font-size:.85rem;
+      padding:6px 0;
+    }
+
+    @media (max-width:520px){
+      .brand .subtitle{display:none}
+      input[type="text"]{min-width: 100%}
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="appRoot">
+    <header class="topbar">
+      <div class="brand">
+        <div class="title">Spanish Practice</div>
+        <div class="subtitle" id="subtitle">Numbers (1–1000) by default — enable more modules in Settings.</div>
+      </div>
+      <div class="top-actions">
+        <span class="chip" id="activeModuleChip" title="Active module">
+          <span class="dot" aria-hidden="true"></span>
+          <span id="activeModuleLabel">Numbers</span>
+          <span class="meta" id="activeModuleMeta"></span>
+        </span>
+        <button class="icon-btn" id="settingsBtn" aria-label="Open settings">⚙</button>
+      </div>
+    </header>
+
+    <div class="banner" id="banner" role="status" aria-live="polite" style="display:none">
+      <div class="banner-text" id="bannerText"></div>
+      <div class="banner-actions">
+        <button class="btn small" id="bannerRestoreBtn">Restore hidden</button>
+        <button class="btn small ghost" id="bannerDismissBtn" aria-label="Dismiss banner">✕</button>
+      </div>
+    </div>
+
+    <main class="card" id="mainCard">
+      <div class="top-row">
+        <div class="counts" id="countsRow"></div>
+        <div class="counts"><span class="muted">Data:</span> <code>localStorage</code></div>
+      </div>
+
+      <div class="only-row" id="practiceOnlyRow" aria-label="Practice-only buttons">
+        <button class="btn small" data-solo="numbers" id="soloNumbersBtn">Practice only Numbers</button>
+        <button class="btn small" data-solo="commands" id="soloCommandsBtn">Practice only Command tone</button>
+        <button class="btn small" data-solo="vocab" id="soloVocabBtn">Practice only Vocab</button>
+        <button class="btn small" data-solo="reflexive" id="soloReflexiveBtn">Practice only Reflexive</button>
+        <button class="btn small" data-solo="tenses" id="soloTensesBtn">Practice only Tenses</button>
+        <button class="btn small ghost" id="soloOffBtn" title="Return to random rotation across enabled modules">All enabled modules</button>
+      </div>
+
+      <div class="never-row">
+        <button class="btn small ghost" id="neverBtn" aria-label="Never show this question again">🙈 Never show this again</button>
+      </div>
+
+      <!-- Numbers section (preserves original 1–1000 behavior and UX) -->
+      <section id="numbersSection">
+        <h2>Random Number (1–1000)</h2>
+        <p class="lead">Reveal the Spanish spelling. In mixed-module mode, <strong>Next</strong> may rotate to a different module.</p>
+
+        <div class="display" id="numberDisplay" aria-live="polite">?</div>
+        <div class="spanish" id="numberSpanish" aria-live="polite"></div>
+
+        <div class="controls">
+          <button class="btn primary" id="revealBtn" aria-label="Reveal in Spanish">Reveal in Spanish</button>
+          <button class="btn" id="nextNumbersBtn" aria-label="Next practice item">Next</button>
+          <button class="btn warn" id="practiceBtn" aria-label="Need more practice">Need more practice</button>
+        </div>
+
+        <div class="practice-indicator" id="practiceIndicator" aria-hidden="false"></div>
+        <div class="keys" id="numbersKeysHint">Keyboard: <strong>Space</strong>=Reveal &nbsp; <strong>→</strong>=Next &nbsp; <strong>←</strong>=Need practice</div>
+        <div class="hint" id="numbersHint">If you mark "Need more practice", the next <em>Numbers</em> question will be similar to the current one; the following Numbers question after that will be random again.</div>
+
+        <div class="divider"></div>
+        <button class="btn small" id="numbersGuideBtn" aria-label="How Spanish numbers work">How Spanish Numbers Work</button>
+        <div class="hint"><small>Rules implemented: 1–15 irregular, 16–19 <em>dieci-</em>, 21–29 <em>veinti-</em> (with accents where required), tens and hundreds according to standard Spanish.</small></div>
+      </section>
+
+      <!-- Generic QA section (Vocab / Commands / Reflexive / Tenses) -->
+      <section id="qaSection" style="display:none">
+        <div class="qa-wrap">
+          <h2 id="qaTitle">Question</h2>
+          <p class="lead" id="qaPrompt"></p>
+
+          <!-- Multiple choice -->
+          <div id="mcqBlock" style="display:none">
+            <div class="mcq" id="mcqList" role="radiogroup" aria-label="Multiple choice options"></div>
+          </div>
+
+          <!-- Text answer -->
+          <div id="textBlock" style="display:none">
+            <div class="accent-toolbar" id="accentToolbar" aria-label="Accent insertion toolbar">
+              <button class="btn small" data-accent="á" aria-label="Insert á">á</button>
+              <button class="btn small" data-accent="é" aria-label="Insert é">é</button>
+              <button class="btn small" data-accent="í" aria-label="Insert í">í</button>
+              <button class="btn small" data-accent="ó" aria-label="Insert ó">ó</button>
+              <button class="btn small" data-accent="ú" aria-label="Insert ú">ú</button>
+              <button class="btn small" data-accent="ñ" aria-label="Insert ñ">ñ</button>
+              <button class="btn small" data-accent="ü" aria-label="Insert ü">ü</button>
+            </div>
+
+            <div class="input-row">
+              <input id="answerInput" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Type your answer in Spanish…" aria-label="Answer input" />
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="btn primary" id="submitBtn" aria-label="Submit answer">Submit</button>
+            <button class="btn" id="nextQBtn" aria-label="Next practice item">Next</button>
+          </div>
+
+          <div class="feedback neutral" id="feedback" aria-live="polite"></div>
+        </div>
+      </section>
+    </main>
+
+    <div class="footer">
+      Tip: Use <strong>🙈</strong> to hide a question forever (until restored). Everything is stored only in your browser.
+    </div>
+  </div>
+
+  <!-- SETTINGS MODAL -->
+  <div class="modal-overlay" id="settingsOverlay" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div style="font-weight:900; font-size:1.05rem" id="settingsTitle">Settings</div>
+          <div class="muted small">Toggle modules, manage tenses, and import/export your local data.</div>
+        </div>
+        <button class="icon-btn" id="settingsCloseBtn" aria-label="Close settings">✕</button>
+      </div>
+
+      <h3>Modules</h3>
+      <div class="toggle">
+        <div>
+          <div class="label">Numbers (1–1000)</div>
+          <div class="desc">Keep the original number-practice behavior.</div>
+        </div>
+        <label>
+          <input type="checkbox" id="toggle_numbers" />
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+      </div>
+
+      <div class="toggle">
+        <div>
+          <div class="label">Command tone</div>
+          <div class="desc">Usted & nosotros commands + pronoun placement.</div>
+        </div>
+        <label>
+          <input type="checkbox" id="toggle_commands" />
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+      </div>
+
+      <div class="toggle">
+        <div>
+          <div class="label">Vocab</div>
+          <div class="desc">English → Spanish typing (accents optional).</div>
+        </div>
+        <label>
+          <input type="checkbox" id="toggle_vocab" />
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+      </div>
+
+      <div class="toggle">
+        <div>
+          <div class="label">Reflexive verbs</div>
+          <div class="desc">Present tense only (accepts <em>se llama</em> or <em>llama</em>).</div>
+        </div>
+        <label>
+          <input type="checkbox" id="toggle_reflexive" />
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+      </div>
+
+      <div class="toggle">
+        <div>
+          <div class="label">Tenses</div>
+          <div class="desc">Present / Preterite / Imperfect conjugation practice.</div>
+        </div>
+        <label>
+          <input type="checkbox" id="toggle_tenses" />
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+      </div>
+
+      <h3>Tenses included (for the Tenses module)</h3>
+      <div class="row">
+        <label class="btn small ghost"><input type="checkbox" id="tense_present" />&nbsp;Present</label>
+        <label class="btn small ghost"><input type="checkbox" id="tense_preterite" />&nbsp;Preterite</label>
+        <label class="btn small ghost"><input type="checkbox" id="tense_imperfect" />&nbsp;Imperfect</label>
+      </div>
+      <p class="small muted">If you enable the Tenses module but select no tenses, Present will be re-enabled automatically.</p>
+
+      <h3>Vocab selection</h3>
+      <div class="row">
+        <label class="btn small ghost"><input type="radio" name="vocabMode" value="weighted" id="vocab_weighted" />&nbsp;Complexity-weighted (default)</label>
+        <label class="btn small ghost"><input type="radio" name="vocabMode" value="uniform" id="vocab_uniform" />&nbsp;Uniform</label>
+      </div>
+
+      <div class="hr"></div>
+
+      <h3>Hidden questions</h3>
+      <div class="row">
+        <button class="btn" id="manageHiddenBtn">Manage hidden questions…</button>
+        <div class="muted small" id="hiddenCountLabel"></div>
+      </div>
+
+      <div class="hr"></div>
+
+      <h3>Export / Import / Reset</h3>
+      <div class="row">
+        <button class="btn" id="exportAllBtn">Export Settings + Hidden List</button>
+        <button class="btn" id="importAllBtn">Import Settings + Hidden List</button>
+        <input type="file" id="importAllFile" accept="application/json" style="display:none" />
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <button class="btn danger" id="resetBtn">Reset (clear local data)</button>
+      </div>
+
+      <p class="small muted">Reset only clears this app’s localStorage key. No cloud sync is used.</p>
+    </div>
+  </div>
+
+  <!-- NUMBERS GUIDE MODAL (kept from original app, restyled) -->
+  <div class="modal-overlay" id="numbersGuideOverlay" role="dialog" aria-modal="true" aria-labelledby="numbersGuideTitle">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div style="font-weight:900; font-size:1.05rem" id="numbersGuideTitle">How Spanish Numbers Work (Quick Guide)</div>
+          <div class="muted small">Same rules as the original 1–1000 module.</div>
+        </div>
+        <button class="icon-btn" id="numbersGuideCloseBtn" aria-label="Close numbers guide">✕</button>
+      </div>
+      <ul>
+        <li><strong>1–15</strong>: memorize (uno, dos, tres… quince)</li>
+        <li><strong>16–19</strong>: <em>dieci</em> + number → dieciséis, diecisiete…</li>
+        <li><strong>20</strong>: veinte</li>
+        <li><strong>21–29</strong>: <em>veinti</em> + number → veintiuno, veintidós, veintitrés</li>
+        <li><strong>30–90</strong>: memorize tens (treinta, cuarenta, cincuenta…)</li>
+        <li><strong>31–99</strong>: tens + <em>y</em> + ones → cuarenta y dos</li>
+        <li><strong>100</strong>: cien (only exactly 100)</li>
+        <li><strong>101–199</strong>: ciento + rest → ciento uno</li>
+        <li><strong>200–900</strong>: memorize hundreds (doscientos, quinientos, setecientos)</li>
+        <li><strong>101–999</strong>: hundreds + rest → doscientos treinta y cuatro</li>
+        <li><strong>1000</strong>: mil (not <em>un mil</em>)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- HIDDEN MANAGER MODAL -->
+  <div class="modal-overlay" id="hiddenOverlay" role="dialog" aria-modal="true" aria-labelledby="hiddenTitle">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div style="font-weight:900; font-size:1.05rem" id="hiddenTitle">Manage hidden questions</div>
+          <div class="muted small">Restore questions you hid, or export/import the hidden list.</div>
+        </div>
+        <button class="icon-btn" id="hiddenCloseBtn" aria-label="Close hidden questions manager">✕</button>
+      </div>
+
+      <div class="row">
+        <button class="btn" id="restoreSelectedBtn">Restore selected</button>
+        <button class="btn" id="restoreAllBtn">Restore all</button>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="row">
+        <button class="btn" id="exportHiddenBtn">Export hidden list (JSON)</button>
+        <button class="btn" id="importHiddenBtn">Import hidden list (JSON)</button>
+        <input type="file" id="importHiddenFile" accept="application/json" style="display:none" />
+        <label class="btn small ghost"><input type="checkbox" id="importHiddenReplace" />&nbsp;Replace (not merge)</label>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="muted small" id="hiddenSummary"></div>
+      <div class="hidden-list" id="hiddenList"></div>
+      <p class="small muted" id="hiddenEmptyNote" style="display:none">No hidden questions. Your future self approves.</p>
+    </div>
+  </div>
+
+  <!-- FIRST RUN OVERLAY -->
+  <div class="modal-overlay" id="firstRunOverlay" role="dialog" aria-modal="true" aria-labelledby="firstRunTitle">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div style="font-weight:900; font-size:1.05rem" id="firstRunTitle">Welcome! Quick controls</div>
+          <div class="muted small">This is a single-file app. Everything stays in your browser.</div>
+        </div>
+        <button class="icon-btn" id="firstRunCloseBtn" aria-label="Close welcome">✕</button>
+      </div>
+
+      <ul>
+        <li><strong>⚙ Settings</strong>: enable modules (Vocab, Commands, Reflexive, Tenses).</li>
+        <li><strong>Enter</strong>: submit answers (typing modules).</li>
+        <li><strong>Accent toolbar</strong>: inserts á é í ó ú ñ ü at your cursor.</li>
+        <li><strong>🙈 Never show again</strong>: hides the current question (manage/restore in Settings).</li>
+        <li><strong>Numbers</strong>: Space reveal, → next, ← mark for practice (same as original).</li>
+      </ul>
+
+      <div class="row">
+        <button class="btn primary" id="firstRunGotItBtn">Got it — start practicing</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/*
+  ============================================================
+  Vocab complexity-weighted scheduling (REQUIRED SPEC)
+  ============================================================
+  For each vocab entry compute a complexity score S:
+
+    S = L_sp + L_en + (W_multi * num_words_sp) + (W_accent * has_accent) + (W_len_threshold * long_word_bonus)
+
+  Where:
+    - L_sp = length (characters) of Spanish text
+    - L_en = length (characters) of English text
+    - num_words_sp = number of words in Spanish
+    - has_accent = 1 if Spanish contains any diacritic (á,é,í,ó,ú,ñ,ü), else 0
+    - long_word_bonus = 1 if L_sp >= 8 else 0
+
+  Weights:
+    - W_multi = 4
+    - W_accent = 5
+    - W_len_threshold = 3
+
+  Normalize S across the vocab pool to [0,1]:
+    normS = (S - S_min) / (S_max - S_min)
+
+  Selection:
+    - default: weighted random sampling using normS (higher = more frequent)
+    - small jitter + recency penalty are applied to avoid repeating the top items too often
+*/
+
+/*
+  ============================================================
+  Storage wrapper notes
+  ============================================================
+  - All persistence is browser-only via localStorage under one key:
+      spanishPracticeApp_v1
+  - getState() performs versioning + defensive schema validation.
+  - saveState() writes the entire state in one JSON blob.
+*/
+
+(() => {
+  'use strict';
+
+  const STORAGE_KEY = 'spanishPracticeApp_v1';
+  const APP_VERSION = 1;
+
+  const MODULES = [
+    { key: 'numbers',   name: 'Numbers (1–1000)' },
+    { key: 'commands',  name: 'Command tone' },
+    { key: 'vocab',     name: 'Vocab' },
+    { key: 'reflexive', name: 'Reflexive verbs' },
+    { key: 'tenses',    name: 'Tenses' }
+  ];
+
+  const PERSONS = [
+    { code: '1s', label: 'yo', display: 'yo (I)' },
+    { code: '2s', label: 'tú', display: 'tú (you)' },
+    { code: '3s', label: 'él/ella/usted', display: 'él/ella/usted (he/she/you formal)' },
+    { code: '1p', label: 'nosotros', display: 'nosotros/nosotras (we)' },
+    { code: '3p', label: 'ellos/ellas/ustedes', display: 'ellos/ellas/ustedes (they/you all)' }
+  ];
+
+  // Normalized lists for tolerant matching.
+  const LEADING_ARTICLES = ['el','la','los','las','un','una','unos','unas'];
+  const LEADING_SUBJECTS = ['yo','tu','el','ella','usted','nosotros','nosotras','ellos','ellas','ustedes'];
+
+  // "Pure numbers" filter lists (used ONLY to exclude *pure number* vocab cards; phrases that contain numbers are kept).
+  const EN_NUMERIC = new Set([
+    'one','two','three','four','five','six','seven','eight','nine','ten',
+    'eleven','twelve','thirteen','fourteen','fifteen',
+    'twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety',
+    'hundred','thousand',
+    // hyphenated cases are tokenized into parts (one-hundred → one + hundred)
+    'twenty','one','thirty','one','forty','one'
+  ]);
+  const ES_NUMERIC = new Set([
+    'uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez',
+    'once','doce','trece','catorce','quince',
+    'veinte','veintiuno','treinta','cuarenta','cincuenta','sesenta','setenta','ochenta','noventa',
+    'cien','ciento',
+    'doscientos','trescientos','cuatrocientos','quinientos','seiscientos','setecientos','ochocientos','novecientos',
+    'mil'
+  ]);
+
+  // --------------------------------------------
+  // Quizlet vocab source (user-provided block)
+  // --------------------------------------------
+  // Replace this string to update vocab. Format: Spanish line, then English line, blank line between entries.
+  // Pure-number cards are filtered out automatically.
+  const QUIZLET_VOCAB_BLOCK = `
+La Pared
+The Wall
+
+
+La Bandera
+The Flag
+
+
+El Piso
+The Floor
+
+
+El Suelo
+The Ground/Floor
+
+
+La Puerta
+The Door
+
+
+La Ventana
+The Window
+
+
+El Lápiz
+The Pencil
+
+
+La Pluma
+The Pen
+
+
+El Bolígrafo
+The Pen
+
+
+El Escritorio
+The Desk
+
+
+La Mesa
+The Table
+
+
+El Pupitre
+The Desk
+
+
+Las Manos
+Hands
+
+
+Los Ojos
+Eyes
+
+
+La Nariz
+Nose
+
+
+La Boca
+Mouth
+
+
+Las Orejas
+Ears
+
+
+El Hombro
+Shoulder
+
+
+El Estomágo
+Stomach
+
+
+Las Rodillas
+Knees
+
+
+Las Piernas
+Legs
+
+
+Los Dedos
+Fingers
+
+
+La Cara
+Face
+
+
+Hace Frío
+It's Cold
+
+
+Hace Calor
+It's hot
+
+
+El Tiempo
+The Weather
+
+
+Hace Sol
+It's Sunny
+
+
+¿Qué tiempo hace hoy?
+How is the weather today
+
+
+Hace Buen Tiempo
+The Weather's Nice
+
+
+Hace Mal Tiempo
+The Weather's Bad
+
+
+Hace Fresco
+It's Cool Out
+
+
+Está Nublado
+It's Cloudy
+
+
+Es la una
+It's one o'clock
+
+
+Media
+half/thirty
+
+
+Cuarto
+fifteen/quarter
+
+
+Mediodía
+Noon
+
+
+Medianoche
+Midnight
+
+
+Son las cinco
+It's five o'clock
+
+
+La Mochila
+Backpack
+
+
+El Cuaderno
+Notebook
+
+
+La Regla
+Ruler
+
+
+El Reloj
+Clock
+
+
+Las Tijeras
+Scissors
+
+
+El Borrador
+Eraser
+
+
+La Silla
+Chair
+
+
+El Maestro
+Teacher
+
+
+La Maestra
+Female teacher
+
+
+La Secundaria
+High-school
+
+
+La Preparatoria
+High-school
+
+
+La Escuela
+School
+
+
+El Colegio
+School
+
+
+La Biblioteca
+Library
+
+
+La Oficina
+Office
+
+
+El Baño
+Bathroom
+
+
+La Clase
+Class
+
+
+La Luz
+Light
+
+
+El Hermano
+Brother
+
+
+La Hermana
+Sister
+
+
+El Padre
+Father
+
+
+La Madre
+Mother
+
+
+El Abuelo
+Grandpa
+
+
+La Abuela
+Grandma
+
+
+El Primo
+Cousin
+
+
+La Prima
+Female Cousin
+
+
+Joven
+Young
+
+
+Viejo/a
+Old
+
+
+Mayor
+Older
+
+
+Menor
+Younger
+
+
+El Tío
+Uncle
+
+
+La Tía
+Aunt
+
+
+El Sobrino
+Nephew
+
+
+La Sobrina
+Niece
+
+
+La Casa
+House
+
+
+La Calle
+Street
+
+
+El Vecino
+Neighbor
+
+
+El Carro
+Car
+
+
+El Coche
+Car
+
+
+El Chico
+Boy
+
+
+La Chica
+Girl
+
+
+El Niño
+Young boy
+
+
+La Niña
+Young girl
+
+
+El Muchacho
+Boy
+
+
+La Muchacha
+Girl
+
+
+La Ciudad
+City
+
+
+El Pueblo
+Town
+
+
+El Otoño
+Fall
+
+
+La Primavera
+Spring
+
+
+El Verano
+Summer
+
+
+El Invierno
+Winter
+
+
+El Mes
+Month
+
+
+El Día
+Day
+
+
+La Semana
+Week
+
+
+La Hora
+Hour
+
+
+La Fecha
+Date
+
+
+Enero
+January
+
+
+El Lunes
+Monday
+
+
+El Mártes
+Tuesday
+
+
+El Miércoles
+Wednesday
+
+
+El Jueves
+Thursday
+
+
+El Viernes
+Friday
+
+
+El Sábado
+Saturday
+
+
+El Domingo
+Sunday
+
+
+El Fin de Semana
+Weekend
+
+
+Ser
+To Be
+
+
+Yo Soy
+I am
+
+
+Tú Eres
+You are
+
+
+él/Ella/Usted es
+He/she/it is
+
+
+Ellos/Ellas/Ustedes Son
+They/you guys are
+
+
+Nosotros/Nosotras Somos
+We are
+
+
+Estar
+To be
+
+
+Yo Estoy
+I am
+
+
+Tú Estás
+You are
+
+
+él/ella/usted está
+He/she/it is
+
+
+Ellos/Ellas/Ustedes Están
+They/you guys are
+
+
+Nosotros/Nosotros Estamos
+We are
+
+
+Ir
+To go
+
+
+Yo Fui
+I went
+
+
+Tú Fuiste
+You went
+
+
+él/Ella/Usted Fue
+He/she/it went
+
+
+Ellos/Ellas/Ustedes Fueron
+They/you guys went
+
+
+Nosotros/Nosotras Fuimos
+We went
+
+
+Hacer
+To do/make
+
+
+Yo Hice
+I did
+
+
+Tú Hiciste
+You did
+
+
+él/Ella/Usted Hizo
+He/she/it did
+
+
+Ellos/Ellas/Ustedes Hicieron
+They/you guys did
+
+
+Nosotros/Nosotras Hicimos
+We did
+
+
+Yo
+I
+
+
+Tú
+You
+
+
+él
+He
+
+
+Ella
+She
+
+
+Usted
+You (formal)
+
+
+Nosotros
+We
+
+
+Nosotras
+We (feminine)
+
+
+Ellos
+They
+
+
+Ellas
+They (Feminine)
+
+
+Ustedes
+You guys/girls
+
+
+El Infinitivo
+Present tense, infinitive
+
+
+El Preterito
+Past tense, preterite
+
+
+El Imperfecto
+Imperfect, past tense
+
+
+Veinte
+Twenty
+
+
+Veintiuno
+Twenty-one
+
+
+Treinta
+Thirty
+
+
+Cuarenta
+Forty
+
+
+Cincuenta
+Fifty
+
+
+Sesenta
+Sixty
+
+
+Setenta
+Seventy
+
+
+Ochenta
+Eighty
+
+
+Noventa
+Ninety
+
+
+Cien
+One-hundred
+
+
+Ciento uno
+One hundred and one
+
+
+Doscientos
+200
+
+
+Trescientos
+300
+
+
+Cuatrocientos
+400
+
+
+Quinientos
+500
+
+
+Seiscientos
+600
+
+
+Setecientos
+700
+
+
+Ochocientos
+800
+
+
+Novecientos
+900
+
+
+Mil
+1000
+
+
+Rojo/a
+Red
+
+
+Amarillo/a
+Yellow
+
+
+Blanco/a
+White
+
+
+Azul
+Blue
+
+
+Negro/a
+Black
+
+
+Verde
+Green
+
+
+Anaranjado/a
+Orange
+
+
+Púrpura
+Purple
+
+
+Morado/a
+Purple
+
+
+Rosado/a
+Pink
+
+
+Gris
+Grey
+
+
+Café
+Brown
+
+
+Castaño
+Brown (hair, eyes)
+
+
+Rubio/a
+Blond
+
+
+Pelirrojo/a
+Red hair
+
+
+Moreno/a
+Dark hair/skin
+
+
+El libro
+Book
+
+
+El Novio
+Boyfriend
+
+
+La novia
+Girlfriend
+
+
+Esposo
+Husband
+
+
+Esposa
+Wife
+
+
+Ganar
+To win/earn
+
+
+El Pie
+Foot
+
+
+El Caballo
+Horse
+
+
+La Vaca
+Cow
+
+
+Encantar
+To love (like the verb gustar)
+
+
+Gustar
+To like
+
+
+La Prueba
+Quiz
+
+
+Pues
+Well..
+
+
+Hasta Luego
+Until later
+
+
+La palabra
+Word
+
+
+El Camarero
+Waiter
+
+
+El Hijo
+Son
+
+
+La hija
+Daughter
+
+
+Comenzar
+To start/begin
+
+
+Vender
+To sell
+
+
+Llegar
+To arrive
+
+
+Poner
+To put/place
+
+
+Poder
+Can/be able to
+
+
+Salir
+To leave/go out
+
+
+Llevar
+To take, carry, bring, wear
+
+
+Hacer
+to do, to make
+
+
+Hice
+I did/made
+
+
+Hiciste
+you did/made
+
+
+Hizo
+he/she did/made
+
+
+Hicimos
+we did/made
+
+
+Hicieron
+they did/made
+
+
+Saber
+to know (facts)
+
+
+Supe
+I knew/found out
+
+
+Supiste
+you knew (found out)
+
+
+Supo
+he/she knew
+
+
+Supieron
+they knew/found out
+
+
+Supimos
+we knew/found out
+
+
+Poder
+to be able, can
+
+
+Pude
+I could/ was able to
+
+
+Pudiste
+you could/were able to
+
+
+Pudo
+he/she could/was able to
+
+
+Pudieron
+they could/was able to
+
+
+pudimos
+we could/were able to
+
+
+Ir
+to go
+
+
+Voy
+I go/am going
+
+
+Vas
+you go/you are going
+
+
+Va
+he/she goes/is going
+
+
+Van
+They go/are going
+
+
+Vamos
+We go/are going
+
+
+la primavera
+spring
+
+
+el verano
+summer
+
+
+el otoño
+fall, autumn
+
+
+el invierno
+winter
+
+
+enero
+January
+
+
+alto/a
+tall
+
+
+bajo/a
+short (height)
+
+
+present progressive: estar + ando (ar)
+estoy hablando
+
+
+present progressive: estar + iendo (er/ir)
+estoy comiendo
+
+
+amable
+kind
+
+
+antipatico/simpatico
+mean/nice
+`;
+
+  // --------------------------------------------
+  // Numbers module (original behavior preserved)
+  // --------------------------------------------
+  function rand() {
+    return Math.floor(Math.random() * 1000) + 1;
+  }
+
+  // Arrays from the original numbers app:
+  const upto29 = [
+    "", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve",
+    "diez", "once", "doce", "trece", "catorce", "quince",
+    "dieciséis", "diecisiete", "dieciocho", "diecinueve",
+    "veinte", "veintiuno", "veintidós", "veintitrés", "veinticuatro", "veinticinco",
+    "veintiséis", "veintisiete", "veintiocho", "veintinueve"
+  ];
+
+  const tens = {
+    30: "treinta",
+    40: "cuarenta",
+    50: "cincuenta",
+    60: "sesenta",
+    70: "setenta",
+    80: "ochenta",
+    90: "noventa"
+  };
+
+  const hundreds = {
+    100: "cien",
+    200: "doscientos",
+    300: "trescientos",
+    400: "cuatrocientos",
+    500: "quinientos",
+    600: "seiscientos",
+    700: "setecientos",
+    800: "ochocientos",
+    900: "novecientos"
+  };
+
+  function numberToSpanish(n) {
+    if (n === 1000) return "mil";
+    if (n <= 29) return upto29[n];
+    if (n < 100) {
+      const t = Math.floor(n / 10) * 10;
+      const r = n % 10;
+      return r === 0 ? tens[t] : tens[t] + " y " + upto29[r];
+    }
+    if (n < 200) {
+      if (n === 100) return "cien";
+      return "ciento " + numberToSpanish(n - 100);
+    }
+    const h = Math.floor(n / 100) * 100;
+    const r = n % 100;
+    return r === 0 ? hundreds[h] : hundreds[h] + " " + numberToSpanish(r);
+  }
+
+  // Generate a "similar" number (original behavior) to practice tough ranges.
+  function generateSimilar(n) {
+    if (n === 1000) return 1000;
+    if (n <= 29) {
+      const offset = Math.floor(Math.random() * 5) - 2;
+      const similar = n + offset;
+      return Math.max(1, Math.min(29, similar));
+    }
+    if (n < 100) {
+      const t = Math.floor(n / 10) * 10;
+      const r = n % 10;
+      const newR = Math.max(0, Math.min(9, r + (Math.floor(Math.random() * 5) - 2)));
+      const candidate = t + newR;
+      return candidate < 30 ? 30 : candidate;
+    }
+    if (n < 1000) {
+      const h = Math.floor(n / 100) * 100;
+      let r = n % 100;
+      r += Math.floor(Math.random() * 21) - 10;
+      r = Math.max(0, Math.min(99, r));
+      let candidate = h + r;
+      if (candidate === 0) candidate = 100;
+      return candidate;
+    }
+    return rand();
+  }
+
+  // --------------------------------------------
+  // Conjugation helpers (Reflexive + Tenses)
+  // --------------------------------------------
+  const PRESENT_ENDINGS = {
+    ar: ['o','as','a','amos','an'],
+    er: ['o','es','e','emos','en'],
+    ir: ['o','es','e','imos','en']
+  };
+  const PRETERITE_ENDINGS = {
+    ar: ['é','aste','ó','amos','aron'],
+    er: ['í','iste','ió','imos','ieron'],
+    ir: ['í','iste','ió','imos','ieron']
+  };
+  const IMPERFECT_ENDINGS = {
+    ar: ['aba','abas','aba','ábamos','aban'],
+    er: ['ía','ías','ía','íamos','ían'],
+    ir: ['ía','ías','ía','íamos','ían']
+  };
+
+  // Irregular full conjugation tables for reliability.
+  const IRREGULAR = {
+    present: {
+      ser:    ['soy','eres','es','somos','son'],
+      estar:  ['estoy','estás','está','estamos','están'],
+      ir:     ['voy','vas','va','vamos','van'],
+      tener:  ['tengo','tienes','tiene','tenemos','tienen'],
+      venir:  ['vengo','vienes','viene','venimos','vienen'],
+      decir:  ['digo','dices','dice','decimos','dicen'],
+      hacer:  ['hago','haces','hace','hacemos','hacen'],
+      poder:  ['puedo','puedes','puede','podemos','pueden'],
+      poner:  ['pongo','pones','pone','ponemos','ponen'],
+      saber:  ['sé','sabes','sabe','sabemos','saben'],
+      ver:    ['veo','ves','ve','vemos','ven'],
+      dar:    ['doy','das','da','damos','dan'],
+      salir:  ['salgo','sales','sale','salimos','salen'],
+      traer:  ['traigo','traes','trae','traemos','traen']
+    },
+    preterite: {
+      ser:    ['fui','fuiste','fue','fuimos','fueron'],
+      ir:     ['fui','fuiste','fue','fuimos','fueron'],
+      tener:  ['tuve','tuviste','tuvo','tuvimos','tuvieron'],
+      venir:  ['vine','viniste','vino','vinimos','vinieron'],
+      estar:  ['estuve','estuviste','estuvo','estuvimos','estuvieron'],
+      poder:  ['pude','pudiste','pudo','pudimos','pudieron'],
+      poner:  ['puse','pusiste','puso','pusimos','pusieron'],
+      saber:  ['supe','supiste','supo','supimos','supieron'],
+      hacer:  ['hice','hiciste','hizo','hicimos','hicieron'],
+      decir:  ['dije','dijiste','dijo','dijimos','dijeron'],
+      traer:  ['traje','trajiste','trajo','trajimos','trajeron'],
+      querer: ['quise','quisiste','quiso','quisimos','quisieron'],
+      dar:    ['di','diste','dio','dimos','dieron'],
+      ver:    ['vi','viste','vio','vimos','vieron']
+    },
+    imperfect: {
+      ser: ['era','eras','era','éramos','eran'],
+      ir:  ['iba','ibas','iba','íbamos','iban'],
+      ver: ['veía','veías','veía','veíamos','veían']
+    }
+  };
+
+  // Present stem-change patterns for regular-ish verbs (applies to 1s,2s,3s,3p).
+  const STEM_CHANGE_PRESENT = {
+    pensar: 'e>ie',
+    querer: 'e>ie',
+    empezar: 'e>ie',
+    preferir: 'e>ie',
+    sentir: 'e>ie',
+    dormir: 'o>ue',
+    acostar: 'o>ue',
+    jugar: 'u>ue',
+    pedir: 'e>i',
+    repetir: 'e>i',
+    servir: 'e>i',
+    vestir: 'e>i',
+    despertar: 'e>ie'
+  };
+
+  // Preterite stem-change for some -ir verbs (only 3s and 3p).
+  const STEM_CHANGE_PRETERITE_IR = {
+    pedir: 'e>i',
+    sentir: 'e>i',
+    dormir: 'o>u',
+    preferir: 'e>i',
+    repetir: 'e>i',
+    servir: 'e>i'
+  };
+
+  function stripDiacritics(str) {
+    return (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
+  function cleanText(str) {
+    const s = (str || '').trim();
+    return s
+      .replace(/^[\s\-–—•*()\[\]{}"'“”‘’.,;:!?¡¿]+/g, '')
+      .replace(/[\s\-–—•*()\[\]{}"'“”‘’.,;:!?¡¿]+$/g, '')
+      .trim();
+  }
+
+  function normalizeLoose(str) {
+    // accent-insensitive, case-insensitive, trims, collapses whitespace
+    const cleaned = cleanText(str).toLowerCase();
+    const noDia = stripDiacritics(cleaned);
+    return noDia.replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  function fnv1a32(str) {
+    // small, fast checksum for list versioning (NOT cryptographic)
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      // 32-bit FNV-1a
+      h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) >>> 0;
+    }
+    return ('0000000' + h.toString(16)).slice(-8);
+  }
+
+  function slugify(str) {
+    const s = stripDiacritics((str || '').toLowerCase());
+    const slug = s
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    return slug || 'item';
+  }
+
+  function pickRandom(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function personIndex(code) {
+    return PERSONS.findIndex(p => p.code === code);
+  }
+
+  function applyStemChange(stem, pattern) {
+    // Replace last occurrence of the "from" vowel in the stem.
+    // This is a working heuristic for common Spanish stem-changers.
+    if (!pattern) return stem;
+    const [from, to] = pattern.split('>');
+    const idx = stem.lastIndexOf(from);
+    if (idx === -1) return stem;
+    return stem.slice(0, idx) + to + stem.slice(idx + from.length);
+  }
+
+  function verbType(verb) {
+    const v = stripDiacritics(verb.toLowerCase());
+    if (v.endsWith('ar')) return 'ar';
+    if (v.endsWith('er')) return 'er';
+    if (v.endsWith('ir')) return 'ir';
+    return null;
+  }
+
+  function conjugate(verb, tense, personCode) {
+    const v = stripDiacritics(verb.toLowerCase());
+    const idx = personIndex(personCode);
+    if (idx < 0) return '';
+
+    // Full irregular table wins.
+    if (IRREGULAR[tense] && IRREGULAR[tense][v]) {
+      return IRREGULAR[tense][v][idx];
+    }
+
+    const type = verbType(v);
+    if (!type) return '';
+
+    let stem = v.slice(0, -2);
+
+    if (tense === 'present') {
+      // present stem changes (except nosotros)
+      const pattern = STEM_CHANGE_PRESENT[v];
+      if (pattern && idx !== 3) stem = applyStemChange(stem, pattern);
+      return stem + PRESENT_ENDINGS[type][idx];
+    }
+
+    if (tense === 'preterite') {
+      // -car/-gar/-zar spelling changes in yo form
+      if (idx === 0) {
+        if (v.endsWith('car')) stem = stem.slice(0, -1) + 'qu';
+        else if (v.endsWith('gar')) stem = stem.slice(0, -1) + 'gu';
+        else if (v.endsWith('zar')) stem = stem.slice(0, -1) + 'c';
+      }
+
+      // i->y in 3rd person for verbs with vowel+er/ir (leer, oír, construir)
+      const vPlain = stripDiacritics(v);
+      const needsY = (idx === 2 || idx === 4) && (
+        vPlain.endsWith('eer') || vPlain.endsWith('oir') || (vPlain.endsWith('uir') && !vPlain.endsWith('guir'))
+      );
+
+      // -ir stem changes in 3rd person (pidió, durmieron)
+      if ((idx === 2 || idx === 4) && type === 'ir' && STEM_CHANGE_PRETERITE_IR[v]) {
+        stem = applyStemChange(stem, STEM_CHANGE_PRETERITE_IR[v]);
+      }
+
+      const ending = PRETERITE_ENDINGS[type][idx];
+      if (needsY) {
+        // replace initial i in ending with y (ió → yó, ieron → yeron)
+        if (idx === 2) return stem + 'yó';
+        if (idx === 4) return stem + 'yeron';
+      }
+      return stem + ending;
+    }
+
+    if (tense === 'imperfect') {
+      return stem + IMPERFECT_ENDINGS[type][idx];
+    }
+
+    return '';
+  }
+
+  // Reflexive pronouns for present tense.
+  const REFLEXIVE_PRONOUN = {
+    '1s': 'me',
+    '2s': 'te',
+    '3s': 'se',
+    '1p': 'nos',
+    '3p': 'se'
+  };
+
+  // --------------------------------------------
+  // Command tone helpers
+  // --------------------------------------------
+  const COMMAND_IRREGULAR = {
+    ser:    { usted: 'sea',      nosotros: 'seamos' },
+    ir:     { usted: 'vaya',     nosotros: 'vayamos' },
+    estar:  { usted: 'esté',     nosotros: 'estemos' },
+    dar:    { usted: 'dé',       nosotros: 'demos' },
+    saber:  { usted: 'sepa',     nosotros: 'sepamos' },
+    tener:  { usted: 'tenga',    nosotros: 'tengamos' },
+    venir:  { usted: 'venga',    nosotros: 'vengamos' },
+    decir:  { usted: 'diga',     nosotros: 'digamos' },
+    hacer:  { usted: 'haga',     nosotros: 'hagamos' },
+    poner:  { usted: 'ponga',    nosotros: 'pongamos' },
+    salir:  { usted: 'salga',    nosotros: 'salgamos' },
+    traer:  { usted: 'traiga',   nosotros: 'traigamos' }
+  };
+
+  function commandForm(verb, form /* 'usted'|'nosotros' */) {
+    const v = stripDiacritics(verb.toLowerCase());
+    if (COMMAND_IRREGULAR[v]) return COMMAND_IRREGULAR[v][form];
+
+    const type = verbType(v);
+    if (!type) return '';
+
+    let stem = v.slice(0, -2);
+
+    // orthographic changes to keep pronunciation
+    if (type === 'ar') {
+      if (v.endsWith('car')) stem = stem.slice(0, -1) + 'qu';
+      else if (v.endsWith('gar')) stem = stem.slice(0, -1) + 'gu';
+      else if (v.endsWith('zar')) stem = stem.slice(0, -1) + 'c';
+    } else {
+      if (v.endsWith('ger') || v.endsWith('gir')) stem = stem.slice(0, -1) + 'j';
+      if (v.endsWith('guir')) stem = stem.slice(0, -1); // drop the u (distinguIR → distinga)
+    }
+
+    // "flip the vowel" rule:
+    // -ar → -e / -emos
+    // -er/-ir → -a / -amos
+    if (form === 'usted') {
+      return stem + (type === 'ar' ? 'e' : 'a');
+    }
+    // nosotros
+    return stem + (type === 'ar' ? 'emos' : 'amos');
+  }
+
+  // --------------------------------------------
+  // Vocab parsing
+  // --------------------------------------------
+  function tokenizeEnglish(enNorm) {
+    // Split punctuation; treat hyphen as separator (one-hundred → one, hundred)
+    const cleaned = enNorm.replace(/[^a-z0-9\-\s]/g, ' ');
+    const raw = cleaned.split(/\s+/).filter(Boolean);
+    const out = [];
+    for (const t of raw) {
+      if (t.includes('-')) out.push(...t.split('-').filter(Boolean));
+      else out.push(t);
+    }
+    return out;
+  }
+
+  function isPureNumberVocab(sp, en) {
+    // Exclude only cards that are essentially "just a number" (digits or number words) on BOTH sides.
+    // This intentionally keeps phrases like "Es la una" / "It's one o'clock".
+    const spC = cleanText(sp);
+    const enC = cleanText(en);
+
+    if (/^\d+$/.test(spC) || /^\d+$/.test(enC)) return true;
+
+    const spNorm = stripDiacritics(spC.toLowerCase());
+    const enNorm = stripDiacritics(enC.toLowerCase());
+
+    const spTokens = spNorm.replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(Boolean).filter(t => t !== 'y');
+    const enTokens = tokenizeEnglish(enNorm).filter(t => t !== 'and');
+
+    if (!spTokens.length || !enTokens.length) return false;
+
+    const spIsNumeric = spTokens.every(t => ES_NUMERIC.has(t) || /^\d+$/.test(t));
+    const enIsNumeric = enTokens.every(t => EN_NUMERIC.has(t) || /^\d+$/.test(t));
+
+    return spIsNumeric && enIsNumeric;
+  }
+
+  function expandSlashVariants(spanish) {
+    // Expands tokens like "él/Ella/Usted es" into ["él es", "Ella es", "Usted es"]
+    const tokens = spanish.split(/\s+/).filter(Boolean);
+    let variants = [''];
+
+    for (const tok of tokens) {
+      let options = [tok];
+
+      if (tok.includes('/')) {
+        // Gender shorthand: rojo/a -> rojo, roja
+        if (/o\/?a$/i.test(tok)) {
+          options = [tok.replace(/o\/?a$/i, 'o'), tok.replace(/o\/?a$/i, 'a')];
+        } else {
+          options = tok.split('/').filter(Boolean);
+        }
+      }
+
+      const next = [];
+      for (const prefix of variants) {
+        for (const opt of options) {
+          next.push((prefix ? prefix + ' ' : '') + opt);
+        }
+      }
+      variants = next;
+    }
+
+    return Array.from(new Set(variants.map(v => v.trim()).filter(Boolean)));
+  }
+
+  function buildAcceptableAnswerSet(baseAnswers) {
+    // Build a set of normalized acceptable answers, with optional stripping of leading articles/subjects
+    // ONLY for multi-word answers (prevents pronouns like "Yo" from becoming empty).
+    const set = new Set();
+
+    for (const ans of baseAnswers) {
+      const cleaned = cleanText(ans);
+      if (!cleaned) continue;
+
+      const norm = normalizeLoose(cleaned);
+      if (norm) set.add(norm);
+
+      const words = norm.split(' ').filter(Boolean);
+      if (words.length >= 2) {
+        // Strip leading articles
+        let w = [...words];
+        while (w.length && LEADING_ARTICLES.includes(w[0])) w.shift();
+        const normNoArt = w.join(' ').trim();
+        if (normNoArt) set.add(normNoArt);
+
+        // Strip leading subject pronouns
+        w = [...words];
+        while (w.length && LEADING_SUBJECTS.includes(w[0])) w.shift();
+        const normNoSubj = w.join(' ').trim();
+        if (normNoSubj) set.add(normNoSubj);
+
+        // Strip both (subject then article)
+        w = [...words];
+        while (w.length && LEADING_SUBJECTS.includes(w[0])) w.shift();
+        while (w.length && LEADING_ARTICLES.includes(w[0])) w.shift();
+        const normNoBoth = w.join(' ').trim();
+        if (normNoBoth) set.add(normNoBoth);
+      }
+    }
+
+    return set;
+  }
+
+  function parseQuizletBlock(block) {
+    const chunks = block.trim().split(/\n\s*\n+/);
+    const entries = [];
+    const usedIds = new Map(); // slug -> count for stable de-duping
+
+    for (const chunk of chunks) {
+      const lines = chunk
+        .split(/\n/)
+        .map(l => cleanText(l))
+        .filter(Boolean);
+
+      if (lines.length < 2) continue;
+
+      const sp = lines[0];
+      const en = lines[1];
+
+      try {
+        // Filter only "pure number" entries (see user clarification).
+        if (isPureNumberVocab(sp, en)) continue;
+
+        const baseSlug = slugify(sp);
+        const count = (usedIds.get(baseSlug) || 0) + 1;
+        usedIds.set(baseSlug, count);
+
+        const idSlug = count === 1 ? baseSlug : (baseSlug + '-' + count);
+        const id = 'vocab-' + idSlug;
+
+        const variants = expandSlashVariants(sp);
+        const acceptable = buildAcceptableAnswerSet(variants);
+
+        const L_sp = sp.length;
+        const L_en = en.length;
+        const numWords = sp.trim().split(/\s+/).filter(Boolean).length;
+        const hasAccent = /[áéíóúñüÁÉÍÓÚÑÜ]/.test(sp) ? 1 : 0;
+        const longWordBonus = (L_sp >= 8) ? 1 : 0;
+
+        const S = L_sp + L_en + (4 * numWords) + (5 * hasAccent) + (3 * longWordBonus);
+
+        entries.push({
+          id,
+          sp,
+          en,
+          variants,
+          acceptable, // Set of normalized acceptable answers
+          complexityRaw: S,
+          complexityNorm: 0 // computed later
+        });
+      } catch (err) {
+        // Required defensive behavior: log raw lines and skip.
+        console.warn('Failed parsing vocab chunk. Raw lines:', lines, 'Error:', err);
+      }
+    }
+
+    // Normalize complexity
+    const scores = entries.map(e => e.complexityRaw);
+    const minS = Math.min(...scores);
+    const maxS = Math.max(...scores);
+    for (const e of entries) {
+      if (maxS === minS) e.complexityNorm = 0.5;
+      else e.complexityNorm = (e.complexityRaw - minS) / (maxS - minS);
+    }
+
+    return entries;
+  }
+
+  // --------------------------------------------
+  // App state + persistence
+  // --------------------------------------------
+  function defaultState() {
+    return {
+      version: APP_VERSION,
+      settings: {
+        modulesEnabled: { numbers: true, commands: false, vocab: false, reflexive: false, tenses: false },
+        tensesEnabled: { present: true, preterite: false, imperfect: false },
+        vocabMode: 'weighted',
+        firstRunSeen: false
+      },
+      hiddenQuestions: {},
+      vocabChecksum: '',
+      userStats: {}
+    };
+  }
+
+  function isPlainObject(x) {
+    return !!x && typeof x === 'object' && !Array.isArray(x);
+  }
+
+  function sanitizeState(raw) {
+    const base = defaultState();
+    if (!isPlainObject(raw)) return base;
+
+    const out = { ...base };
+
+    out.version = APP_VERSION;
+
+    // Settings
+    if (isPlainObject(raw.settings)) {
+      const s = raw.settings;
+
+      if (isPlainObject(s.modulesEnabled)) {
+        for (const m of Object.keys(base.settings.modulesEnabled)) {
+          out.settings.modulesEnabled[m] = !!s.modulesEnabled[m];
+        }
+      }
+      if (isPlainObject(s.tensesEnabled)) {
+        for (const t of Object.keys(base.settings.tensesEnabled)) {
+          out.settings.tensesEnabled[t] = !!s.tensesEnabled[t];
+        }
+      }
+      if (s.vocabMode === 'uniform' || s.vocabMode === 'weighted') out.settings.vocabMode = s.vocabMode;
+      if (typeof s.firstRunSeen === 'boolean') out.settings.firstRunSeen = s.firstRunSeen;
+    }
+
+    // Hidden questions
+    if (isPlainObject(raw.hiddenQuestions)) {
+      out.hiddenQuestions = {};
+      for (const [k, v] of Object.entries(raw.hiddenQuestions)) {
+        if (typeof k === 'string' && v) out.hiddenQuestions[k] = true;
+      }
+    }
+
+    // Checksum + stats (optional)
+    if (typeof raw.vocabChecksum === 'string') out.vocabChecksum = raw.vocabChecksum;
+
+    if (isPlainObject(raw.userStats)) {
+      out.userStats = {};
+      for (const [id, st] of Object.entries(raw.userStats)) {
+        if (!isPlainObject(st)) continue;
+        const attempts = Number.isFinite(st.attempts) ? st.attempts : parseInt(st.attempts, 10);
+        const correct = Number.isFinite(st.correct) ? st.correct : parseInt(st.correct, 10);
+        out.userStats[id] = {
+          attempts: Number.isFinite(attempts) ? attempts : 0,
+          correct: Number.isFinite(correct) ? correct : 0
+        };
+      }
+    }
+
+    return out;
+  }
+
+  function getState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return defaultState();
+      const parsed = JSON.parse(raw);
+      return sanitizeState(parsed);
+    } catch (err) {
+      console.warn('Failed to load state; using defaults.', err);
+      return defaultState();
+    }
+  }
+
+  function saveState(state) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (err) {
+      console.error('Failed to save state:', err);
+    }
+  }
+
+  // --------------------------------------------
+  // Pools for modules (finite IDs for hiding)
+  // --------------------------------------------
+  const COMMAND_VERBS = [
+    // regular-ish
+    'hablar','comer','vivir','mirar','escuchar','leer','correr','vender','llegar','buscar','trabajar',
+    // irregular/common
+    'tener','venir','decir','hacer','poner','salir','ir','ser','estar','dar','saber','traer'
+  ];
+
+  const DIRECT_OBJECT_PRONOUNS = ['lo','la','los','las','me','te','nos'];
+
+  const REFLEXIVE_VERBS = [
+    'llamarse','levantarse','acostarse','ducharse','peinarse','lavarse','vestirse','sentirse','ponerse','irse','despertarse'
+  ];
+
+  const TENSE_VERBS = [
+    // Mix of common regular + irregular (engine supports these)
+    'hablar','comer','vivir',
+    'ser','estar','ir',
+    'tener','venir','decir','hacer','poner','poder','saber','ver','dar','salir','traer','querer',
+    'llegar','buscar','jugar','dormir','pedir'
+  ];
+
+  // --------------------------------------------
+  // App
+  // --------------------------------------------
+  const App = {
+    state: null,
+
+    vocab: [],
+    vocabById: new Map(),
+
+    commandPool: [],
+    reflexivePool: [],
+    tensesPool: [],
+    reflexiveIdSet: new Set(),
+    tensesIdSet: new Set(),
+
+    currentQuestion: null,
+    answered: false,
+
+    // Numbers module (original behavior)
+    currentNumber: null,
+    practiceRequested: false,
+    numbersStatus: '',
+
+    // Rotation
+    soloMode: null, // moduleKey or null
+    recentByModule: {
+      numbers: [],
+      commands: [],
+      vocab: [],
+      reflexive: [],
+      tenses: []
+    },
+
+    saveTimer: null,
+    lastFocus: null,
+
+    $: {},
+
+    init() {
+      this.cacheDom();
+
+      // Load state
+      this.state = getState();
+
+      // Parse vocab
+      this.vocab = parseQuizletBlock(QUIZLET_VOCAB_BLOCK);
+      this.vocabById = new Map(this.vocab.map(v => [v.id, v]));
+
+      // Checksum for list versioning
+      const checksum = fnv1a32(QUIZLET_VOCAB_BLOCK);
+      if (!this.state.vocabChecksum) this.state.vocabChecksum = checksum;
+      // If list changed, we keep hiddenQuestions as-is (user intent), but we update checksum for export clarity.
+      if (this.state.vocabChecksum !== checksum) {
+        this.state.vocabChecksum = checksum;
+        this.saveSoon();
+      }
+
+      this.buildPools();
+      this.refreshSettingsUI();
+
+      // Auto-disable empty modules (edge case handling)
+      this.ensureModuleAvailability();
+
+      this.wireEvents();
+      this.updateCountsRow();
+      this.updateHiddenCountLabel();
+
+      // First-run overlay
+      if (!this.state.settings.firstRunSeen) {
+        this.openModal(this.$.firstRunOverlay, this.$.firstRunGotItBtn);
+      }
+
+      // Start with a Numbers question (preserves original default)
+      this.nextQuestion({ forceModule: 'numbers', keepFeedback: false });
+    },
+
+    cacheDom() {
+      const $ = (id) => document.getElementById(id);
+      this.$ = {
+        subtitle: $('subtitle'),
+        activeModuleLabel: $('activeModuleLabel'),
+        activeModuleMeta: $('activeModuleMeta'),
+
+        banner: $('banner'),
+        bannerText: $('bannerText'),
+        bannerRestoreBtn: $('bannerRestoreBtn'),
+        bannerDismissBtn: $('bannerDismissBtn'),
+
+        countsRow: $('countsRow'),
+
+        // practice only
+        soloNumbersBtn: $('soloNumbersBtn'),
+        soloCommandsBtn: $('soloCommandsBtn'),
+        soloVocabBtn: $('soloVocabBtn'),
+        soloReflexiveBtn: $('soloReflexiveBtn'),
+        soloTensesBtn: $('soloTensesBtn'),
+        soloOffBtn: $('soloOffBtn'),
+
+        neverBtn: $('neverBtn'),
+
+        // numbers
+        numbersSection: $('numbersSection'),
+        numberDisplay: $('numberDisplay'),
+        numberSpanish: $('numberSpanish'),
+        revealBtn: $('revealBtn'),
+        nextNumbersBtn: $('nextNumbersBtn'),
+        practiceBtn: $('practiceBtn'),
+        practiceIndicator: $('practiceIndicator'),
+        numbersGuideBtn: $('numbersGuideBtn'),
+
+        // qa
+        qaSection: $('qaSection'),
+        qaTitle: $('qaTitle'),
+        qaPrompt: $('qaPrompt'),
+        mcqBlock: $('mcqBlock'),
+        mcqList: $('mcqList'),
+        textBlock: $('textBlock'),
+        accentToolbar: $('accentToolbar'),
+        answerInput: $('answerInput'),
+        submitBtn: $('submitBtn'),
+        nextQBtn: $('nextQBtn'),
+        feedback: $('feedback'),
+
+        // settings modal
+        settingsBtn: $('settingsBtn'),
+        settingsOverlay: $('settingsOverlay'),
+        settingsCloseBtn: $('settingsCloseBtn'),
+
+        toggle_numbers: $('toggle_numbers'),
+        toggle_commands: $('toggle_commands'),
+        toggle_vocab: $('toggle_vocab'),
+        toggle_reflexive: $('toggle_reflexive'),
+        toggle_tenses: $('toggle_tenses'),
+
+        tense_present: $('tense_present'),
+        tense_preterite: $('tense_preterite'),
+        tense_imperfect: $('tense_imperfect'),
+
+        vocab_weighted: $('vocab_weighted'),
+        vocab_uniform: $('vocab_uniform'),
+
+        manageHiddenBtn: $('manageHiddenBtn'),
+        hiddenCountLabel: $('hiddenCountLabel'),
+
+        exportAllBtn: $('exportAllBtn'),
+        importAllBtn: $('importAllBtn'),
+        importAllFile: $('importAllFile'),
+        resetBtn: $('resetBtn'),
+
+        // numbers guide modal
+        numbersGuideOverlay: $('numbersGuideOverlay'),
+        numbersGuideCloseBtn: $('numbersGuideCloseBtn'),
+
+        // hidden modal
+        hiddenOverlay: $('hiddenOverlay'),
+        hiddenCloseBtn: $('hiddenCloseBtn'),
+        restoreSelectedBtn: $('restoreSelectedBtn'),
+        restoreAllBtn: $('restoreAllBtn'),
+        exportHiddenBtn: $('exportHiddenBtn'),
+        importHiddenBtn: $('importHiddenBtn'),
+        importHiddenFile: $('importHiddenFile'),
+        importHiddenReplace: $('importHiddenReplace'),
+        hiddenSummary: $('hiddenSummary'),
+        hiddenList: $('hiddenList'),
+        hiddenEmptyNote: $('hiddenEmptyNote'),
+
+        // first run
+        firstRunOverlay: $('firstRunOverlay'),
+        firstRunCloseBtn: $('firstRunCloseBtn'),
+        firstRunGotItBtn: $('firstRunGotItBtn')
+      };
+    },
+
+    wireEvents() {
+      // Settings open/close
+      this.$.settingsBtn.addEventListener('click', () => this.openSettings());
+      this.$.settingsCloseBtn.addEventListener('click', () => this.closeModal(this.$.settingsOverlay));
+      this.$.settingsOverlay.addEventListener('click', (e) => {
+        if (e.target === this.$.settingsOverlay) this.closeModal(this.$.settingsOverlay);
+      });
+
+      // Numbers guide
+      this.$.numbersGuideBtn.addEventListener('click', () => this.openModal(this.$.numbersGuideOverlay, this.$.numbersGuideCloseBtn));
+      this.$.numbersGuideCloseBtn.addEventListener('click', () => this.closeModal(this.$.numbersGuideOverlay));
+      this.$.numbersGuideOverlay.addEventListener('click', (e) => {
+        if (e.target === this.$.numbersGuideOverlay) this.closeModal(this.$.numbersGuideOverlay);
+      });
+
+      // Hidden manager
+      this.$.manageHiddenBtn.addEventListener('click', () => this.openHiddenManager());
+      this.$.hiddenCloseBtn.addEventListener('click', () => this.closeModal(this.$.hiddenOverlay));
+      this.$.hiddenOverlay.addEventListener('click', (e) => {
+        if (e.target === this.$.hiddenOverlay) this.closeModal(this.$.hiddenOverlay);
+      });
+
+      this.$.restoreSelectedBtn.addEventListener('click', () => this.restoreSelectedHidden());
+      this.$.restoreAllBtn.addEventListener('click', () => this.restoreAllHidden());
+      this.$.exportHiddenBtn.addEventListener('click', () => this.exportHidden());
+      this.$.importHiddenBtn.addEventListener('click', () => this.$.importHiddenFile.click());
+      this.$.importHiddenFile.addEventListener('change', (e) => this.importHiddenFile(e));
+
+      // Banner
+      this.$.bannerDismissBtn.addEventListener('click', () => this.hideBanner());
+      this.$.bannerRestoreBtn.addEventListener('click', () => this.openHiddenManager());
+
+      // Practice-only
+      const soloButtons = [
+        this.$.soloNumbersBtn,
+        this.$.soloCommandsBtn,
+        this.$.soloVocabBtn,
+        this.$.soloReflexiveBtn,
+        this.$.soloTensesBtn
+      ];
+      for (const btn of soloButtons) {
+        btn.addEventListener('click', () => {
+          const moduleKey = btn.dataset.solo;
+          this.setSoloMode(moduleKey);
+        });
+      }
+      this.$.soloOffBtn.addEventListener('click', () => this.clearSoloMode());
+
+      // "Never show again"
+      this.$.neverBtn.addEventListener('click', () => this.hideCurrentQuestion());
+
+      // Numbers buttons
+      this.$.revealBtn.addEventListener('click', () => this.revealSpanishNumber());
+      this.$.nextNumbersBtn.addEventListener('click', () => this.nextQuestion({ keepFeedback: false }));
+      this.$.practiceBtn.addEventListener('click', () => this.markNeedPractice());
+
+      // Accent buttons
+      this.$.accentToolbar.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-accent]');
+        if (!btn) return;
+        this.insertAccent(btn.dataset.accent);
+      });
+
+      // Submit/Next
+      this.$.submitBtn.addEventListener('click', () => this.submitAnswer());
+      this.$.nextQBtn.addEventListener('click', () => this.nextQuestion({ keepFeedback: false }));
+
+      // Enter submits; if already answered, Enter moves Next.
+      this.$.answerInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (this.answered) this.nextQuestion({ keepFeedback: false });
+          else this.submitAnswer();
+        }
+      });
+
+      // Settings toggles
+      const moduleToggle = (key) => {
+        const el = this.$['toggle_' + key];
+        el.addEventListener('change', () => {
+          this.state.settings.modulesEnabled[key] = !!el.checked;
+          // If user disables current solo module, clear solo
+          if (!this.state.settings.modulesEnabled[key] && this.soloMode === key) this.soloMode = null;
+          this.ensureModuleAvailability();
+          this.saveSoon();
+          this.updateCountsRow();
+          this.updateHiddenCountLabel();
+
+          // If everything got disabled, re-enable numbers as a sane default (unless it's empty too).
+          if (!this.anyModuleEnabled()) {
+            this.state.settings.modulesEnabled.numbers = true;
+            this.ensureModuleAvailability();
+            this.saveSoon();
+          }
+
+          // If current module just got disabled, move to next available question
+          if (this.currentQuestion && !this.state.settings.modulesEnabled[this.currentQuestion.module]) {
+            this.nextQuestion({ keepFeedback: false });
+          }
+        });
+      };
+      for (const m of MODULES) moduleToggle(m.key);
+
+      // Tense checkboxes
+      const tenseToggle = (tenseKey) => {
+        const el = this.$['tense_' + tenseKey];
+        el.addEventListener('change', () => {
+          this.state.settings.tensesEnabled[tenseKey] = !!el.checked;
+          // If tenses module enabled but none selected, restore present.
+          if (this.state.settings.modulesEnabled.tenses && !this.anyTenseEnabled()) {
+            this.state.settings.tensesEnabled.present = true;
+            this.$.tense_present.checked = true;
+            this.showBanner('No tenses selected. Present was re-enabled automatically.');
+          }
+          this.saveSoon();
+          this.updateCountsRow();
+
+          // If currently on a tenses question that is now disallowed, move on.
+          if (this.currentQuestion && this.currentQuestion.module === 'tenses') {
+            const t = this.currentQuestion.tense;
+            if (!this.state.settings.tensesEnabled[t]) this.nextQuestion({ keepFeedback: false });
+          }
+        });
+      };
+      tenseToggle('present');
+      tenseToggle('preterite');
+      tenseToggle('imperfect');
+
+      // Vocab mode
+      const modeRadios = [this.$.vocab_weighted, this.$.vocab_uniform];
+      for (const r of modeRadios) {
+        r.addEventListener('change', () => {
+          if (r.checked) {
+            this.state.settings.vocabMode = r.value;
+            this.saveSoon();
+          }
+        });
+      }
+
+      // Export / Import / Reset
+      this.$.exportAllBtn.addEventListener('click', () => this.exportAll());
+      this.$.importAllBtn.addEventListener('click', () => this.$.importAllFile.click());
+      this.$.importAllFile.addEventListener('change', (e) => this.importAllFile(e));
+      this.$.resetBtn.addEventListener('click', () => this.resetAll());
+
+      // First run close
+      const closeFirstRun = () => {
+        this.state.settings.firstRunSeen = true;
+        this.saveSoon();
+        this.closeModal(this.$.firstRunOverlay);
+      };
+      this.$.firstRunGotItBtn.addEventListener('click', closeFirstRun);
+      this.$.firstRunCloseBtn.addEventListener('click', closeFirstRun);
+      this.$.firstRunOverlay.addEventListener('click', (e) => {
+        if (e.target === this.$.firstRunOverlay) closeFirstRun();
+      });
+
+      // Global keyboard: Esc closes modals. Numbers shortcuts preserved.
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          if (this.closeTopModal()) e.preventDefault();
+          return;
+        }
+
+        // Numbers keyboard shortcuts (only when Numbers module is active AND not typing in an input)
+        if (this.currentQuestion && this.currentQuestion.module === 'numbers') {
+          const ae = document.activeElement;
+          const typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA');
+          if (typing) return;
+
+          if (e.key === ' ') {
+            e.preventDefault();
+            this.revealSpanishNumber();
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            this.nextQuestion({ keepFeedback: false });
+          } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            this.markNeedPractice();
+          }
+        }
+      });
+    },
+
+    buildPools() {
+      // Commands pool: one stable ID per (verb, form, pos/neg) as required schema.
+      this.commandPool = [];
+      for (const verb of COMMAND_VERBS) {
+        for (const form of ['usted','nosotros']) {
+          for (const pol of ['pos','neg']) {
+            const id = `cmd-${slugify(verb)}-${form}-${pol}`;
+            this.commandPool.push({ id, verb, form, pol });
+          }
+        }
+      }
+
+      // Reflexive pool: stable IDs conj-<verb>-present-<person>
+      this.reflexivePool = [];
+      this.reflexiveIdSet = new Set();
+      for (const v of REFLEXIVE_VERBS) {
+        for (const p of PERSONS) {
+          const id = `conj-${slugify(v)}-present-${p.code}`;
+          this.reflexivePool.push({ id, verb: v, tense: 'present', person: p.code });
+          this.reflexiveIdSet.add(id);
+        }
+      }
+
+      // Tenses pool: stable IDs conj-<verb>-<tense>-<person>
+      this.tensesPool = [];
+      this.tensesIdSet = new Set();
+      for (const v of TENSE_VERBS) {
+        for (const tense of ['present','preterite','imperfect']) {
+          for (const p of PERSONS) {
+            const id = `conj-${slugify(v)}-${tense}-${p.code}`;
+            this.tensesPool.push({ id, verb: v, tense, person: p.code });
+            this.tensesIdSet.add(id);
+          }
+        }
+      }
+    },
+
+    refreshSettingsUI() {
+      // Module toggles
+      for (const m of MODULES) {
+        const el = this.$['toggle_' + m.key];
+        el.checked = !!this.state.settings.modulesEnabled[m.key];
+      }
+
+      // Tense toggles
+      this.$.tense_present.checked = !!this.state.settings.tensesEnabled.present;
+      this.$.tense_preterite.checked = !!this.state.settings.tensesEnabled.preterite;
+      this.$.tense_imperfect.checked = !!this.state.settings.tensesEnabled.imperfect;
+
+      // Vocab mode
+      if (this.state.settings.vocabMode === 'uniform') this.$.vocab_uniform.checked = true;
+      else this.$.vocab_weighted.checked = true;
+
+      // Enable/disable solo buttons based on enabled modules
+      this.updateSoloButtonsDisabled();
+    },
+
+    updateSoloButtonsDisabled() {
+      const enabled = this.state.settings.modulesEnabled;
+      this.$.soloNumbersBtn.disabled = !enabled.numbers;
+      this.$.soloCommandsBtn.disabled = !enabled.commands;
+      this.$.soloVocabBtn.disabled = !enabled.vocab;
+      this.$.soloReflexiveBtn.disabled = !enabled.reflexive;
+      this.$.soloTensesBtn.disabled = !enabled.tenses;
+    },
+
+    openSettings() {
+      this.refreshSettingsUI();
+      this.updateHiddenCountLabel();
+      this.openModal(this.$.settingsOverlay, this.$.settingsCloseBtn);
+    },
+
+    openHiddenManager() {
+      this.rebuildHiddenList();
+      this.openModal(this.$.hiddenOverlay, this.$.hiddenCloseBtn);
+    },
+
+    openModal(overlay, focusEl) {
+      this.lastFocus = document.activeElement;
+      overlay.style.display = 'flex';
+      // Basic focus management
+      setTimeout(() => {
+        (focusEl || overlay.querySelector('button, input, [tabindex]:not([tabindex="-1"])'))?.focus?.();
+      }, 0);
+    },
+
+    closeModal(overlay) {
+      overlay.style.display = 'none';
+      // Return focus
+      if (this.lastFocus && this.lastFocus.focus) {
+        setTimeout(() => this.lastFocus.focus(), 0);
+      }
+    },
+
+    closeTopModal() {
+      // Close in priority order
+      const modals = [
+        this.$.hiddenOverlay,
+        this.$.settingsOverlay,
+        this.$.numbersGuideOverlay,
+        this.$.firstRunOverlay
+      ];
+      for (const m of modals) {
+        if (m.style.display === 'flex') {
+          this.closeModal(m);
+          return true;
+        }
+      }
+      return false;
+    },
+
+    // --------------------------------------------
+    // Availability / edge-case auto-disable
+    // --------------------------------------------
+    anyTenseEnabled() {
+      const t = this.state.settings.tensesEnabled;
+      return !!(t.present || t.preterite || t.imperfect);
+    },
+
+    anyModuleEnabled() {
+      return Object.values(this.state.settings.modulesEnabled).some(Boolean);
+    },
+
+    getEnabledModules() {
+      const enabled = this.state.settings.modulesEnabled;
+      const list = MODULES.map(m => m.key).filter(k => enabled[k]);
+
+      if (this.soloMode && enabled[this.soloMode]) return [this.soloMode];
+      if (this.soloMode && !enabled[this.soloMode]) this.soloMode = null;
+
+      return list;
+    },
+
+    ensureModuleAvailability() {
+      // If a module has 0 available items, auto-disable it and notify.
+      const messages = [];
+
+      // Vocab can be empty if parsing/filtering removes everything.
+      const counts = {
+        numbers: this.getModuleCounts('numbers'),
+        commands: this.getModuleCounts('commands'),
+        vocab: this.getModuleCounts('vocab'),
+        reflexive: this.getModuleCounts('reflexive'),
+        tenses: this.getModuleCounts('tenses')
+      };
+
+      for (const m of MODULES) {
+        const key = m.key;
+        if (!this.state.settings.modulesEnabled[key]) continue;
+
+        if (key === 'tenses' && !this.anyTenseEnabled()) {
+          this.state.settings.tensesEnabled.present = true;
+          this.$.tense_present.checked = true;
+          messages.push('Tenses module had no tenses selected. Present was re-enabled.');
+          continue;
+        }
+
+        if (counts[key].available === 0) {
+          this.state.settings.modulesEnabled[key] = false;
+          messages.push(`${m.name} was auto-disabled because it has 0 available items (all hidden, filtered out, or not configured).`);
+        }
+      }
+
+      this.updateSoloButtonsDisabled();
+      this.refreshSettingsUI();
+      this.updateCountsRow();
+      this.updateHiddenCountLabel();
+      this.saveSoon();
+
+      if (messages.length) {
+        this.showBanner(`<strong>Heads up:</strong><br>${messages.map(m => '• ' + m).join('<br>')}<br><small>Use “Restore hidden” to bring items back.</small>`);
+      }
+
+      // If everything is disabled, re-enable Numbers if possible.
+      if (!this.anyModuleEnabled()) {
+        if (counts.numbers.available > 0) {
+          this.state.settings.modulesEnabled.numbers = true;
+          this.saveSoon();
+          this.showBanner('All modules were disabled. Numbers (1–1000) was re-enabled.');
+        } else {
+          this.showBanner('<strong>No practice items available.</strong> You appear to have hidden everything. Restore some hidden questions.');
+        }
+      }
+    },
+
+    getModuleCounts(moduleKey) {
+      const hidden = this.state.hiddenQuestions;
+
+      if (moduleKey === 'numbers') {
+        const total = 1000;
+        const hiddenCount = Object.keys(hidden).filter(k => k.startsWith('number-')).length;
+        return { total, available: Math.max(0, total - hiddenCount) };
+      }
+
+      if (moduleKey === 'vocab') {
+        const total = this.vocab.length;
+        let hiddenCount = 0;
+        for (const v of this.vocab) if (hidden[v.id]) hiddenCount++;
+        return { total, available: Math.max(0, total - hiddenCount) };
+      }
+
+      if (moduleKey === 'commands') {
+        const total = this.commandPool.length;
+        let hiddenCount = 0;
+        for (const c of this.commandPool) if (hidden[c.id]) hiddenCount++;
+        return { total, available: Math.max(0, total - hiddenCount) };
+      }
+
+      if (moduleKey === 'reflexive') {
+        const total = this.reflexivePool.length;
+        let hiddenCount = 0;
+        for (const q of this.reflexivePool) if (hidden[q.id]) hiddenCount++;
+        return { total, available: Math.max(0, total - hiddenCount) };
+      }
+
+      if (moduleKey === 'tenses') {
+        // Only count tenses currently enabled
+        const totalAll = this.tensesPool.filter(q => this.state.settings.tensesEnabled[q.tense]).length;
+        let hiddenCount = 0;
+        for (const q of this.tensesPool) {
+          if (!this.state.settings.tensesEnabled[q.tense]) continue;
+          if (hidden[q.id]) hiddenCount++;
+        }
+        return { total: totalAll, available: Math.max(0, totalAll - hiddenCount) };
+      }
+
+      return { total: 0, available: 0 };
+    },
+
+    updateCountsRow() {
+      const parts = [];
+      for (const m of MODULES) {
+        const c = this.getModuleCounts(m.key);
+        const on = this.state.settings.modulesEnabled[m.key];
+        const label = `${m.key === 'numbers' ? 'Numbers' : m.name}: ${c.available}/${c.total}`;
+        parts.push(on ? label : `<span style="opacity:.45">${label}</span>`);
+      }
+      this.$.countsRow.innerHTML = parts.join(' &nbsp;•&nbsp; ');
+    },
+
+    updateHiddenCountLabel() {
+      const n = Object.keys(this.state.hiddenQuestions).length;
+      this.$.hiddenCountLabel.textContent = n ? `${n} hidden` : '0 hidden';
+    },
+
+    // --------------------------------------------
+    // Banner helpers
+    // --------------------------------------------
+    showBanner(html) {
+      this.$.bannerText.innerHTML = html;
+      this.$.banner.style.display = 'flex';
+    },
+
+    hideBanner() {
+      this.$.banner.style.display = 'none';
+    },
+
+    // --------------------------------------------
+    // Rotation / next question
+    // --------------------------------------------
+    setSoloMode(moduleKey) {
+      if (!this.state.settings.modulesEnabled[moduleKey]) {
+        this.showBanner(`Can’t enter practice-only mode: <strong>${moduleKey}</strong> is disabled in Settings.`);
+        return;
+      }
+      this.soloMode = moduleKey;
+      this.showBanner(`Practice-only mode: <strong>${MODULES.find(m => m.key===moduleKey)?.name || moduleKey}</strong>. Click “All enabled modules” to return to rotation.`);
+      this.nextQuestion({ forceModule: moduleKey, keepFeedback: false });
+    },
+
+    clearSoloMode() {
+      this.soloMode = null;
+      this.hideBanner();
+      this.nextQuestion({ keepFeedback: false });
+    },
+
+    chooseModule(enabled) {
+      // Random rotation among enabled modules
+      return pickRandom(enabled);
+    },
+
+    nextQuestion(opts = {}) {
+      const { forceModule = null, keepFeedback = false } = opts;
+
+      this.ensureModuleAvailability();
+
+      const enabled = this.getEnabledModules();
+      if (!enabled.length) {
+        this.renderEmptyState();
+        return;
+      }
+
+      let moduleKey = forceModule || this.chooseModule(enabled);
+
+      // If forced module is disabled/empty, fall back.
+      if (!this.state.settings.modulesEnabled[moduleKey]) {
+        moduleKey = this.chooseModule(enabled);
+      }
+
+      // Generate question; if generator fails (empty), disable module and retry.
+      let q = null;
+      for (let tries = 0; tries < 8; tries++) {
+        q = this.generateQuestion(moduleKey);
+        if (q) break;
+
+        // auto-disable and try a different module
+        this.state.settings.modulesEnabled[moduleKey] = false;
+        this.saveSoon();
+        this.updateSoloButtonsDisabled();
+        this.updateCountsRow();
+
+        const stillEnabled = this.getEnabledModules();
+        if (!stillEnabled.length) break;
+        moduleKey = this.chooseModule(stillEnabled);
+      }
+
+      if (!q) {
+        this.renderEmptyState();
+        return;
+      }
+
+      this.currentQuestion = q;
+      this.answered = false;
+
+      this.updateActiveModuleChip(q.module);
+      this.renderQuestion(q, { keepFeedback });
+
+      // Recency buffer
+      this.pushRecent(q.module, q.id);
+
+      this.updateSoloButtonsDisabled();
+      this.updateCountsRow();
+      this.updateHiddenCountLabel();
+    },
+
+    pushRecent(moduleKey, id) {
+      const buf = this.recentByModule[moduleKey] || [];
+      buf.push(id);
+      while (buf.length > 6) buf.shift();
+      this.recentByModule[moduleKey] = buf;
+    },
+
+    generateQuestion(moduleKey) {
+      if (moduleKey === 'numbers') return this.generateNumbersQuestion();
+      if (moduleKey === 'vocab') return this.generateVocabQuestion();
+      if (moduleKey === 'commands') return this.generateCommandQuestion();
+      if (moduleKey === 'reflexive') return this.generateReflexiveQuestion();
+      if (moduleKey === 'tenses') return this.generateTensesQuestion();
+      return null;
+    },
+
+    // ----- Numbers -----
+    generateNumbersQuestion() {
+      const hidden = this.state.hiddenQuestions;
+
+      // quick availability check
+      if (this.getModuleCounts('numbers').available === 0) return null;
+
+      let n = null;
+
+      // If "Need more practice" was requested, generate a similar number next time Numbers appears.
+      if (this.practiceRequested && this.currentNumber != null) {
+        for (let i = 0; i < 20; i++) {
+          const candidate = generateSimilar(this.currentNumber);
+          if (!hidden[`number-${candidate}`]) {
+            n = candidate;
+            break;
+          }
+        }
+        if (n != null) {
+          this.practiceRequested = false;
+          this.numbersStatus = 'Practice: similar number shown — next Numbers question will be random.';
+        }
+      }
+
+      // Otherwise random, avoiding hidden and immediate repeats.
+      if (n == null) {
+        for (let i = 0; i < 2000; i++) {
+          const candidate = rand();
+          if (hidden[`number-${candidate}`]) continue;
+          if (candidate === this.currentNumber) continue;
+          n = candidate;
+          break;
+        }
+        if (n == null) return null;
+
+        // Once we successfully generate a random number, clear the "similar shown" status.
+        if (!this.practiceRequested) this.numbersStatus = this.practiceRequested ? this.numbersStatus : '';
+      }
+
+      this.currentNumber = n;
+      return { module: 'numbers', id: `number-${n}`, number: n };
+    },
+
+    revealSpanishNumber() {
+      if (!this.currentQuestion || this.currentQuestion.module !== 'numbers') return;
+      const n = this.currentQuestion.number;
+      this.$.numberSpanish.textContent = numberToSpanish(n);
+    },
+
+    markNeedPractice() {
+      if (!this.currentQuestion || this.currentQuestion.module !== 'numbers') return;
+      this.practiceRequested = true;
+      this.numbersStatus = 'Marked for practice: next Numbers question will be similar.';
+      this.$.practiceIndicator.textContent = this.numbersStatus;
+    },
+
+    // ----- Vocab -----
+    generateVocabQuestion() {
+      if (this.getModuleCounts('vocab').available === 0) return null;
+
+      const hidden = this.state.hiddenQuestions;
+      const recent = new Set(this.recentByModule.vocab.slice(-3));
+
+      const candidates = this.vocab.filter(v => !hidden[v.id] && !recent.has(v.id));
+      const pool = candidates.length ? candidates : this.vocab.filter(v => !hidden[v.id]);
+
+      if (!pool.length) return null;
+
+      const mode = this.state.settings.vocabMode || 'weighted';
+
+      let pick = null;
+      if (mode === 'uniform') {
+        pick = pickRandom(pool);
+      } else {
+        // Weighted by normalized complexity, with jitter and mild recency penalty.
+        // Weight must be > 0.
+        const weights = pool.map(v => {
+          const base = 0.05 + v.complexityNorm;
+          const jitter = 0.85 + Math.random() * 0.30;
+          const penalty = recent.has(v.id) ? 0.25 : 1.0;
+          return base * jitter * penalty;
+        });
+
+        const sum = weights.reduce((a,b) => a+b, 0);
+        let r = Math.random() * sum;
+        for (let i = 0; i < pool.length; i++) {
+          r -= weights[i];
+          if (r <= 0) { pick = pool[i]; break; }
+        }
+        if (!pick) pick = pool[pool.length - 1];
+      }
+
+      return {
+        module: 'vocab',
+        id: pick.id,
+        prompt: `Translate to Spanish: <strong>${escapeHtml(pick.en)}</strong>`,
+        expectedDisplay: pick.sp,
+        acceptable: pick.acceptable,
+        hasAccent: /[áéíóúñüÁÉÍÓÚÑÜ]/.test(pick.sp)
+      };
+    },
+
+    // ----- Commands -----
+    generateCommandQuestion() {
+      if (this.getModuleCounts('commands').available === 0) return null;
+
+      const hidden = this.state.hiddenQuestions;
+      const recent = new Set(this.recentByModule.commands.slice(-3));
+      const pool = this.commandPool.filter(c => !hidden[c.id] && !recent.has(c.id));
+      const fallback = this.commandPool.filter(c => !hidden[c.id]);
+      const item = (pool.length ? pickRandom(pool) : (fallback.length ? pickRandom(fallback) : null));
+      if (!item) return null;
+
+      const verb = item.verb;
+      const form = item.form; // usted|nosotros
+      const pol = item.pol;   // pos|neg
+      const baseForm = commandForm(verb, form);
+
+      // Decide question style for this *single stable id*
+      const useMCQ = Math.random() < 0.35; // ~35% multiple-choice
+
+      const pronoun = pickRandom(DIRECT_OBJECT_PRONOUNS);
+
+      if (useMCQ) {
+        const correct = pol === 'neg' ? `No ${baseForm}.` : `${capitalize(baseForm)}.`;
+        const distract1 = pol === 'neg' ? `No ${wrongCommandFlip(verb, form)}.` : `${capitalize(wrongCommandFlip(verb, form))}.`;
+        const distract2 = pol === 'neg' ? `No ${wrongIndicative(verb, form)}.` : `${capitalize(wrongIndicative(verb, form))}.`;
+        const distract3 = pol === 'neg' ? `No ${wrongPersonCommand(verb, form)}.` : `${capitalize(wrongPersonCommand(verb, form))}.`;
+
+        const options = shuffle([correct, distract1, distract2, distract3]);
+
+        const prompt = pol === 'neg'
+          ? `Choose the correct <strong>${form}</strong> <strong>negative</strong> command for <strong>${escapeHtml(verb)}</strong>.`
+          : `Choose the correct <strong>${form}</strong> <strong>affirmative</strong> command for <strong>${escapeHtml(verb)}</strong>.`;
+
+        return {
+          module: 'commands',
+          id: item.id,
+          mode: 'mcq',
+          prompt,
+          options,
+          correctIndex: options.indexOf(correct),
+          explanation: commandExplanation(verb, form, pol)
+        };
+      }
+
+      // Open-ended (text) with occasional pronoun placement practice
+      const doPronoun = Math.random() < 0.55;
+
+      if (pol === 'neg') {
+        if (doPronoun) {
+          // pronoun BEFORE the verb
+          return {
+            module: 'commands',
+            id: item.id,
+            mode: 'text',
+            prompt: `Fill the blank (pronoun in negative commands goes <strong>before</strong> the verb):<br><strong>No ${pronoun} ____.</strong><br><small>Verb: ${escapeHtml(verb)} • form: ${form}</small>`,
+            expectedDisplay: baseForm,
+            acceptable: buildAcceptableAnswerSet([baseForm]),
+            explanation: `Negative commands: <strong>pronoun before</strong> the verb (“No ${pronoun} ${baseForm}”). ${commandExplanation(verb, form, pol)}`
+          };
+        }
+        return {
+          module: 'commands',
+          id: item.id,
+          mode: 'text',
+          prompt: `Type the full <strong>${form}</strong> <strong>negative</strong> command for <strong>${escapeHtml(verb)}</strong>.<br><small>Include <em>no</em>.</small>`,
+          expectedDisplay: `no ${baseForm}`,
+          acceptable: buildAcceptableAnswerSet([`no ${baseForm}`]),
+          explanation: commandExplanation(verb, form, pol)
+        };
+      }
+
+      // affirmative
+      if (doPronoun) {
+        // pronoun attached to end (we accept without accent adjustments)
+        const full = baseForm + pronoun;
+        return {
+          module: 'commands',
+          id: item.id,
+          mode: 'text',
+          prompt: `Affirmative commands attach the pronoun to the end.<br>Write the <strong>${form}</strong> command for <strong>${escapeHtml(verb)}</strong> with <strong>${pronoun}</strong> attached:<br><strong>_____</strong>`,
+          expectedDisplay: full,
+          acceptable: buildAcceptableAnswerSet([full]),
+          explanation: `Affirmative commands: <strong>attach</strong> the pronoun (“${baseForm} + ${pronoun} → ${full}”).<br><small>Note: Spanish often adds an accent when attaching pronouns (e.g., <em>hágalo</em>). This app accepts answers with or without that accent shift.</small>`
+        };
+      }
+
+      return {
+        module: 'commands',
+        id: item.id,
+        mode: 'text',
+        prompt: `Form the <strong>${form}</strong> <strong>affirmative</strong> command for <strong>${escapeHtml(verb)}</strong>.<br><small>Just the verb form.</small>`,
+        expectedDisplay: baseForm,
+        acceptable: buildAcceptableAnswerSet([baseForm]),
+        explanation: commandExplanation(verb, form, pol)
+      };
+    },
+
+    // ----- Reflexive -----
+    generateReflexiveQuestion() {
+      if (this.getModuleCounts('reflexive').available === 0) return null;
+
+      const hidden = this.state.hiddenQuestions;
+      const recent = new Set(this.recentByModule.reflexive.slice(-3));
+
+      const pool = this.reflexivePool.filter(q => !hidden[q.id] && !recent.has(q.id));
+      const fallback = this.reflexivePool.filter(q => !hidden[q.id]);
+      const item = pool.length ? pickRandom(pool) : (fallback.length ? pickRandom(fallback) : null);
+      if (!item) return null;
+
+      const verb = item.verb; // e.g., llamarse
+      const base = stripDiacritics(verb.toLowerCase()).endsWith('se') ? stripDiacritics(verb.toLowerCase()).slice(0, -2) : stripDiacritics(verb.toLowerCase());
+      const baseInf = base; // e.g., llamar
+      const p = item.person;
+      const pron = REFLEXIVE_PRONOUN[p];
+      const conj = conjugate(baseInf, 'present', p);
+
+      const full = `${pron} ${conj}`;
+      const acceptable = buildAcceptableAnswerSet([full, conj]); // accept both “se llama” and “llama” per spec.
+
+      return {
+        module: 'reflexive',
+        id: item.id,
+        mode: 'text',
+        prompt: `Conjugate <strong>${escapeHtml(verb)}</strong> in the <strong>${escapeHtml(personLabel(p))}</strong> form (present).<br><small>We accept <em>${full}</em> or just <em>${conj}</em>.</small>`,
+        expectedDisplay: full,
+        acceptable,
+        explanation: `Reflexive verbs normally include the reflexive pronoun (${pron}). In casual drills you may see the verb alone; both are accepted here.`
+      };
+    },
+
+    // ----- Tenses -----
+    generateTensesQuestion() {
+      if (this.getModuleCounts('tenses').available === 0) return null;
+
+      const hidden = this.state.hiddenQuestions;
+      const enabledTenses = Object.entries(this.state.settings.tensesEnabled)
+        .filter(([k,v]) => v)
+        .map(([k]) => k);
+
+      if (!enabledTenses.length) return null;
+
+      // Pick a random pool item that matches enabled tenses and isn't hidden.
+      const recent = new Set(this.recentByModule.tenses.slice(-3));
+
+      const pool = this.tensesPool.filter(q =>
+        enabledTenses.includes(q.tense) && !hidden[q.id] && !recent.has(q.id)
+      );
+      const fallback = this.tensesPool.filter(q =>
+        enabledTenses.includes(q.tense) && !hidden[q.id]
+      );
+      const item = pool.length ? pickRandom(pool) : (fallback.length ? pickRandom(fallback) : null);
+      if (!item) return null;
+
+      const expected = conjugate(item.verb, item.tense, item.person);
+      const acceptable = buildAcceptableAnswerSet([expected]);
+
+      return {
+        module: 'tenses',
+        id: item.id,
+        mode: 'text',
+        tense: item.tense,
+        prompt: `Conjugate <strong>${escapeHtml(item.verb)}</strong> in the <strong>${escapeHtml(personLabel(item.person))}</strong> form — <strong>${escapeHtml(item.tense)}</strong>.`,
+        expectedDisplay: expected,
+        acceptable,
+        explanation: tenseExplanation(item.verb, item.tense, item.person, expected)
+      };
+    },
+
+    // --------------------------------------------
+    // Rendering
+    // --------------------------------------------
+    updateActiveModuleChip(moduleKey) {
+      const moduleName = MODULES.find(m => m.key === moduleKey)?.name || moduleKey;
+      this.$.activeModuleLabel.textContent = moduleName;
+
+      const counts = this.getModuleCounts(moduleKey);
+      const solo = this.soloMode ? ' • solo' : '';
+      this.$.activeModuleMeta.textContent = ` ${counts.available}/${counts.total}${solo}`;
+    },
+
+    renderQuestion(q, opts = {}) {
+      const { keepFeedback = false } = opts;
+
+      // Never-show button always visible
+      this.$.neverBtn.disabled = !q || !q.id;
+
+      if (q.module === 'numbers') {
+        this.$.numbersSection.style.display = '';
+        this.$.qaSection.style.display = 'none';
+
+        this.$.numberDisplay.textContent = String(q.number);
+        this.$.numberSpanish.textContent = '';
+        this.$.practiceIndicator.textContent = this.numbersStatus || '';
+
+        // Button label: if only numbers enabled, it's "Next Number"; otherwise "Next"
+        const enabled = this.getEnabledModules();
+        const rotationOnlyNumbers = enabled.length === 1 && enabled[0] === 'numbers';
+        this.$.nextNumbersBtn.textContent = rotationOnlyNumbers ? 'Next Number' : 'Next';
+
+        // Numbers hint: show practice behavior reminder
+        this.$.numbersHint.style.display = '';
+
+        if (!keepFeedback) {
+          // feedback area is in qa section only; no-op here
+        }
+        return;
+      }
+
+      // non-number modules
+      this.$.numbersSection.style.display = 'none';
+      this.$.qaSection.style.display = '';
+
+      // Title and prompt
+      const title = MODULES.find(m => m.key === q.module)?.name || 'Question';
+      this.$.qaTitle.textContent = title;
+      this.$.qaPrompt.innerHTML = q.prompt || '';
+
+      // Reset UI
+      this.$.mcqBlock.style.display = 'none';
+      this.$.textBlock.style.display = 'none';
+
+      if (!keepFeedback) this.setFeedback('Type your answer, then press Enter or click Submit.', 'neutral');
+
+      if (q.mode === 'mcq') {
+        this.$.mcqBlock.style.display = '';
+        this.renderMcq(q);
+      } else {
+        this.$.textBlock.style.display = '';
+        this.$.answerInput.value = '';
+        setTimeout(() => this.$.answerInput.focus(), 0);
+      }
+    },
+
+    renderMcq(q) {
+      this.$.mcqList.innerHTML = '';
+      const groupName = 'mcq_' + Math.random().toString(36).slice(2);
+
+      q.options.forEach((opt, idx) => {
+        const id = groupName + '_' + idx;
+        const label = document.createElement('label');
+        label.className = 'mcq-option';
+        label.setAttribute('for', id);
+
+        const input = document.createElement('input');
+        input.type = 'radio';
+        input.name = groupName;
+        input.id = id;
+        input.value = String(idx);
+
+        const span = document.createElement('span');
+        span.textContent = opt;
+
+        label.appendChild(input);
+        label.appendChild(span);
+        this.$.mcqList.appendChild(label);
+      });
+
+      // Allow Enter to submit when focus inside mcq block
+      this.$.mcqList.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (this.answered) this.nextQuestion({ keepFeedback: false });
+          else this.submitAnswer();
+        }
+      }, { once: true });
+
+      // Focus first option for keyboard nav
+      setTimeout(() => {
+        const first = this.$.mcqList.querySelector('input[type="radio"]');
+        if (first) first.focus();
+      }, 0);
+    },
+
+    renderEmptyState() {
+      this.$.numbersSection.style.display = 'none';
+      this.$.qaSection.style.display = '';
+      this.$.qaTitle.textContent = 'No questions available';
+      this.$.qaPrompt.textContent = 'Everything enabled appears to be empty (or hidden). Restore hidden questions or enable a module in Settings.';
+      this.$.mcqBlock.style.display = 'none';
+      this.$.textBlock.style.display = 'none';
+      this.setFeedback('Open Settings (⚙) → Manage hidden questions, or enable a module.', 'bad');
+    },
+
+    // --------------------------------------------
+    // Answering + feedback
+    // --------------------------------------------
+    submitAnswer() {
+      const q = this.currentQuestion;
+      if (!q || q.module === 'numbers') return; // numbers has no typing submission
+
+      if (this.answered) {
+        this.setFeedback('Already answered — press Next to continue.', 'neutral');
+        return;
+      }
+
+      let correct = false;
+
+      if (q.mode === 'mcq') {
+        const selected = this.$.mcqList.querySelector('input[type="radio"]:checked');
+        if (!selected) {
+          this.setFeedback('Pick an option first (arrow keys work), then Submit.', 'neutral');
+          return;
+        }
+        const idx = parseInt(selected.value, 10);
+        correct = (idx === q.correctIndex);
+
+        const correctText = q.options[q.correctIndex];
+
+        if (correct) {
+          this.setFeedback(`✅ Correct.<br><small>${q.explanation || ''}</small>`, 'good');
+        } else {
+          this.setFeedback(`❌ Not quite. Correct answer: <strong>${escapeHtml(correctText)}</strong><br><small>${q.explanation || ''}</small>`, 'bad');
+        }
+      } else {
+        const user = this.$.answerInput.value;
+        const userNorm = normalizeLoose(user);
+
+        if (!userNorm) {
+          this.setFeedback('Type an answer first, then Submit.', 'neutral');
+          return;
+        }
+
+        correct = q.acceptable && q.acceptable.has(userNorm);
+
+        // Stats
+        this.bumpStats(q.id, correct);
+
+        if (correct) {
+          const accentNote = this.accentNoteIfNeeded(user, q.expectedDisplay);
+          this.setFeedback(`✅ Correct: <strong>${escapeHtml(q.expectedDisplay)}</strong>${accentNote ? `<br><small>${accentNote}</small>` : ''}<br><small>${q.explanation || ''}</small>`, 'good');
+        } else {
+          this.setFeedback(`❌ Not quite. Correct answer: <strong>${escapeHtml(q.expectedDisplay)}</strong><br><small>${q.explanation || ''}</small>`, 'bad');
+        }
+      }
+
+      // Stats for MCQ too
+      if (q.mode === 'mcq') this.bumpStats(q.id, correct);
+
+      this.answered = true;
+      this.saveSoon();
+    },
+
+    bumpStats(id, correct) {
+      if (!id) return;
+      const st = this.state.userStats[id] || { attempts: 0, correct: 0 };
+      st.attempts = (st.attempts || 0) + 1;
+      if (correct) st.correct = (st.correct || 0) + 1;
+      this.state.userStats[id] = st;
+    },
+
+    accentNoteIfNeeded(userInput, expected) {
+      // If expected contains diacritics but user didn't type any, nudge gently.
+      const hasExpectedDia = stripDiacritics(expected) !== expected;
+      const userHasDia = stripDiacritics(userInput) !== userInput;
+      if (hasExpectedDia && !userHasDia) {
+        return `Spelling note: <em>${escapeHtml(expected)}</em> uses an accent/diacritic. (Accents are optional for correctness here.)`;
+      }
+      return '';
+    },
+
+    setFeedback(html, tone /* good|bad|neutral */) {
+      this.$.feedback.classList.remove('good','bad','neutral');
+      this.$.feedback.classList.add(tone || 'neutral');
+      this.$.feedback.innerHTML = html;
+    },
+
+    // --------------------------------------------
+    // Hiding questions
+    // --------------------------------------------
+    hideCurrentQuestion() {
+      const q = this.currentQuestion;
+      if (!q || !q.id) return;
+
+      this.state.hiddenQuestions[q.id] = true;
+      this.saveSoon();
+      this.updateCountsRow();
+      this.updateHiddenCountLabel();
+
+      this.showBanner(`Hidden: <strong>${escapeHtml(this.describeId(q.id))}</strong><br><small>You can restore it in “Manage hidden questions”.</small>`);
+
+      // If we hid the current number, also clear its reveal text.
+      if (q.module === 'numbers') {
+        this.$.numberSpanish.textContent = '';
+      }
+
+      // Move on immediately
+      this.nextQuestion({ keepFeedback: false });
+    },
+
+    describeId(id) {
+      if (id.startsWith('number-')) {
+        return `Number ${id.replace('number-','')}`;
+      }
+      if (id.startsWith('vocab-')) {
+        const v = this.vocabById.get(id);
+        if (v) return `Vocab: "${v.en}" → ${v.sp}`;
+        return id;
+      }
+      if (id.startsWith('cmd-')) {
+        const parts = id.split('-');
+        const form = parts[parts.length - 2];
+        const pol = parts[parts.length - 1];
+        const verb = parts.slice(1, parts.length - 2).join('-');
+        return `Command: ${verb} • ${form} • ${pol}`;
+      }
+      if (id.startsWith('conj-')) {
+        const parts = id.split('-');
+        const person = parts[parts.length - 1];
+        const tense = parts[parts.length - 2];
+        const verb = parts.slice(1, parts.length - 2).join('-');
+        return `Conjugation: ${verb} • ${tense} • ${person}`;
+      }
+      return id;
+    },
+
+    rebuildHiddenList() {
+      const hiddenIds = Object.keys(this.state.hiddenQuestions);
+      hiddenIds.sort();
+
+      this.$.hiddenList.innerHTML = '';
+      this.$.hiddenEmptyNote.style.display = hiddenIds.length ? 'none' : '';
+
+      this.$.hiddenSummary.textContent = hiddenIds.length
+        ? `${hiddenIds.length} hidden question(s).`
+        : 'Nothing is hidden.';
+
+      for (const id of hiddenIds) {
+        const row = document.createElement('div');
+        row.className = 'hidden-item';
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.dataset.id = id;
+        cb.ariaLabel = 'Select hidden item';
+
+        const label = document.createElement('label');
+        label.style.flex = '1';
+
+        const desc = document.createElement('div');
+        desc.textContent = this.describeId(id);
+
+        const code = document.createElement('code');
+        code.textContent = id;
+
+        label.appendChild(desc);
+        label.appendChild(code);
+
+        row.appendChild(cb);
+        row.appendChild(label);
+
+        this.$.hiddenList.appendChild(row);
+      }
+    },
+
+    restoreSelectedHidden() {
+      const checks = Array.from(this.$.hiddenList.querySelectorAll('input[type="checkbox"]:checked'));
+      if (!checks.length) {
+        this.showBanner('Select at least one hidden item to restore.');
+        return;
+      }
+      for (const cb of checks) {
+        const id = cb.dataset.id;
+        delete this.state.hiddenQuestions[id];
+      }
+      this.saveSoon();
+      this.ensureModuleAvailability();
+      this.rebuildHiddenList();
+      this.updateCountsRow();
+      this.updateHiddenCountLabel();
+      this.showBanner(`Restored ${checks.length} item(s).`);
+    },
+
+    restoreAllHidden() {
+      const n = Object.keys(this.state.hiddenQuestions).length;
+      this.state.hiddenQuestions = {};
+      this.saveSoon();
+      this.ensureModuleAvailability();
+      this.rebuildHiddenList();
+      this.updateCountsRow();
+      this.updateHiddenCountLabel();
+      this.showBanner(n ? `Restored all hidden items (${n}).` : 'Nothing to restore.');
+    },
+
+    exportHidden() {
+      this.debounceButton(this.$.exportHiddenBtn);
+
+      const payload = {
+        version: APP_VERSION,
+        hiddenQuestions: this.state.hiddenQuestions
+      };
+      downloadJson('spanishPractice_hiddenQuestions.json', payload);
+      this.showBanner('Exported hidden list as JSON.');
+    },
+
+    importHiddenFile(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      e.target.value = '';
+
+      const replace = !!this.$.importHiddenReplace.checked;
+
+      file.text().then((txt) => {
+        let parsed;
+        try {
+          parsed = JSON.parse(txt);
+        } catch {
+          this.showBanner('That file is not valid JSON.');
+          return;
+        }
+
+        let hidden = null;
+        if (isPlainObject(parsed) && isPlainObject(parsed.hiddenQuestions)) hidden = parsed.hiddenQuestions;
+        else if (isPlainObject(parsed)) hidden = parsed; // allow raw map
+
+        if (!isPlainObject(hidden)) {
+          this.showBanner('Hidden import must be an object of { "question-id": true, ... }.');
+          return;
+        }
+
+        const nextHidden = replace ? {} : { ...this.state.hiddenQuestions };
+        for (const [k, v] of Object.entries(hidden)) {
+          if (typeof k === 'string' && v) nextHidden[k] = true;
+        }
+
+        this.state.hiddenQuestions = nextHidden;
+        this.saveSoon();
+        this.ensureModuleAvailability();
+        this.rebuildHiddenList();
+        this.updateCountsRow();
+        this.updateHiddenCountLabel();
+        this.showBanner(`Imported hidden list (${Object.keys(hidden).length} entries).`);
+      });
+    },
+
+    // --------------------------------------------
+    // Export / Import / Reset (full state)
+    // --------------------------------------------
+    exportAll() {
+      this.debounceButton(this.$.exportAllBtn);
+
+      const payload = {
+        version: APP_VERSION,
+        settings: this.state.settings,
+        hiddenQuestions: this.state.hiddenQuestions,
+        vocabChecksum: this.state.vocabChecksum,
+        userStats: this.state.userStats
+      };
+      downloadJson('spanishPracticeApp_settingsAndHidden.json', payload);
+      this.showBanner('Exported settings + hidden list as JSON.');
+    },
+
+    importAllFile(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      e.target.value = '';
+
+      file.text().then((txt) => {
+        let parsed;
+        try {
+          parsed = JSON.parse(txt);
+        } catch {
+          this.showBanner('That file is not valid JSON.');
+          return;
+        }
+
+        const next = sanitizeState(parsed);
+
+        this.state = next;
+        saveState(this.state);
+
+        this.refreshSettingsUI();
+        this.ensureModuleAvailability();
+        this.updateCountsRow();
+        this.updateHiddenCountLabel();
+
+        this.showBanner('Imported settings + hidden list.');
+        this.nextQuestion({ keepFeedback: false });
+      });
+    },
+
+    resetAll() {
+      this.debounceButton(this.$.resetBtn);
+
+      const ok = window.confirm('Reset will clear this app’s saved data (settings, hidden list, stats) from localStorage. Continue?');
+      if (!ok) return;
+
+      localStorage.removeItem(STORAGE_KEY);
+      this.state = defaultState();
+      saveState(this.state);
+
+      this.practiceRequested = false;
+      this.currentNumber = null;
+      this.numbersStatus = '';
+
+      this.refreshSettingsUI();
+      this.ensureModuleAvailability();
+      this.updateCountsRow();
+      this.updateHiddenCountLabel();
+
+      this.showBanner('Reset complete. Back to defaults.');
+      this.nextQuestion({ forceModule: 'numbers', keepFeedback: false });
+    },
+
+    debounceButton(btn) {
+      btn.disabled = true;
+      setTimeout(() => { btn.disabled = false; }, 650);
+    },
+
+    // --------------------------------------------
+    // Accent insertion
+    // --------------------------------------------
+    insertAccent(char) {
+      const input = this.$.answerInput;
+      if (!input || input.offsetParent === null) return; // hidden
+      input.focus();
+
+      const start = input.selectionStart ?? input.value.length;
+      const end = input.selectionEnd ?? input.value.length;
+
+      const before = input.value.slice(0, start);
+      const after = input.value.slice(end);
+
+      input.value = before + char + after;
+
+      const pos = start + char.length;
+      input.setSelectionRange(pos, pos);
+    },
+
+    // --------------------------------------------
+    // Persistence (debounced)
+    // --------------------------------------------
+    saveSoon() {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = setTimeout(() => saveState(this.state), 120);
+    }
+  };
+
+  // --------------------------------------------
+  // Misc helpers for command module
+  // --------------------------------------------
+  function wrongCommandFlip(verb, form) {
+    // Wrong "non-flipped" vowel: -ar uses -a, -er/-ir uses -e (typical mistake)
+    const v = stripDiacritics(verb.toLowerCase());
+    const type = verbType(v) || 'ar';
+    let stem = v.slice(0, -2);
+    if (form === 'usted') return stem + (type === 'ar' ? 'a' : 'e');
+    return stem + (type === 'ar' ? 'amos' : 'emos');
+  }
+
+  function wrongIndicative(verb, form) {
+    // Present indicative-ish (another common mistake)
+    const v = stripDiacritics(verb.toLowerCase());
+    const type = verbType(v) || 'ar';
+    const stem = v.slice(0, -2);
+    if (form === 'usted') {
+      // 3s indicative: habla/come/vive
+      const end = (type === 'ar') ? 'a' : 'e';
+      return stem + end;
+    }
+    // nosotros indicative
+    const end = (type === 'ar') ? 'amos' : (type === 'er' ? 'emos' : 'imos');
+    return stem + end;
+  }
+
+  function wrongPersonCommand(verb, form) {
+    // Use tú command (informal) as distractor (speak!)
+    const v = stripDiacritics(verb.toLowerCase());
+    const type = verbType(v) || 'ar';
+    const stem = v.slice(0, -2);
+    if (type === 'ar') return stem + 'a';
+    return stem + 'e';
+  }
+
+  function commandExplanation(verb, form, pol) {
+    const v = stripDiacritics(verb.toLowerCase());
+    const type = verbType(v);
+    const flip = type === 'ar' ? '(-ar → -e)' : '(-er/-ir → -a)';
+    const nos = type === 'ar' ? '(-ar → -emos)' : '(-er/-ir → -amos)';
+
+    const base = form === 'usted'
+      ? `Usted commands use the present subjunctive: start from the “yo” form, drop <em>-o</em>, then flip the vowel ${flip}.`
+      : `Nosotros commands: same flip + <em>-mos</em> ${nos}.`;
+
+    const pron = pol === 'neg'
+      ? 'Negative commands put pronouns <strong>before</strong> the verb.'
+      : 'Affirmative commands attach pronouns to the <strong>end</strong> of the verb.';
+
+    return `${base} ${pron}`;
+  }
+
+  function tenseExplanation(verb, tense, person, expected) {
+    const v = stripDiacritics(verb.toLowerCase());
+    if (IRREGULAR[tense] && IRREGULAR[tense][v]) {
+      return `Irregular form: <strong>${escapeHtml(expected)}</strong> (memorize this one).`;
+    }
+    if (tense === 'present') {
+      return 'Present tense regular endings depend on -ar/-er/-ir (stem changes may apply).';
+    }
+    if (tense === 'preterite') {
+      return 'Preterite: completed actions (many irregulars + spelling changes exist).';
+    }
+    if (tense === 'imperfect') {
+      return 'Imperfect: ongoing/habitual past (fewer irregulars).';
+    }
+    return '';
+  }
+
+  function personLabel(code) {
+    return PERSONS.find(p => p.code === code)?.display || code;
+  }
+
+  function capitalize(str) {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function downloadJson(filename, obj) {
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // Expose for debugging
+  window.SpanishPracticeApp = App;
+
+  window.addEventListener('DOMContentLoaded', () => App.init());
+})();
+</script>
+</body>
+</html>

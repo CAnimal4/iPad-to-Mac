@@ -1,0 +1,214 @@
+Run environment: Codex 5.3 (macOS Codex App).
+Target file (single-file app): index 4.html — open, edit, and overwrite this file in the project workspace.
+
+Brief
+
+Update the single-file Spanish practice app at index 4.html. Preserve existing behavior and structure, add the five new modules (Days, Months, Seasons, Time, Colors), and implement the improvements and features listed below. Produce a single updated index 4.html in the project workspace (inline code only — no external resources). Keep code style consistent with the original file and favor non-breaking, opt-in changes where conflicts appear.
+
+Files to edit
+
+index 4.html (single-file app). Modify and save this file in-place in the project.
+
+High-level goals
+
+Keep original behavior and structure.
+
+Add modules: Days, Months, Seasons, Time, Colors (with Settings toggles and Practice-only buttons).
+
+Add robust keyboard shortcuts, responsive layout, improved normalization, spaced-repetition state, export/import, accessibility, and smoke tests as specified below.
+
+Keep everything contained in one file and clearly comment added/changed code.
+
+Required additions & improvements
+
+Stronger MCQ distractors
+
+Generate distractors programmatically using semantic rules:
+
+Days/months/seasons: use other items from same group.
+
+Colors: use visually/confusable colors.
+
+Time: use plausible numeric/phrase variants (e.g., "Es la una" → "Son las dos", "Es la una y cuarto").
+
+Ensure no distractor equals the correct answer; avoid duplicates.
+
+Time parsing & acceptance
+
+Implement a small time-normalizer accepting:
+
+Spelled-out forms (es la una, son las dos y cuarto, mediodía, medianoche).
+
+Numeric forms (1:00, 13:00 → map 24h→12h when reasonable).
+
+Variants with/without articles (la una, una).
+
+Match diacritics- and whitespace-insensitively; accept common abbreviations.
+
+Spaced-repetition friendliness
+
+Per-item score (0–5), persisted:
+
+New items start score = 2.
+
+Correct: score = min(score+1, 5). Incorrect: score = max(score-1, 0).
+
+nextQuestion() uses weighted sampling to prefer lower-score items.
+
+Persist scores to localStorage along with settings and hidden/archived lists.
+
+Accessibility (A11y)
+
+All interactive controls must have ARIA labels.
+
+Settings modal: role="dialog", aria-modal="true", set initial focus when opened.
+
+Provide sr-only helper text for non-obvious controls.
+
+Preserve focus outlines and ensure contrast ratios are acceptable.
+
+Keyboard handling refinements
+
+Distinguish typing vs global key mode:
+
+When a text input is focused, Space inserts a space; Enter submits typed answer.
+
+Global Space reveals hint only when no text input focused.
+
+Respect IME composition (compositionstart / compositionend) — do not trigger reveal/submit while composing.
+
+Add an onscreen key-hint strip listing global shortcuts; make it toggleable in Settings.
+
+Export / Import user data
+
+Export/Import JSON for hiddenItems, itemScores, settings, and per-module choices.
+
+“Reset progress” button with an undo toast (5 seconds).
+
+Responsive & maintainable layout
+
+.only-row should be horizontally scrollable with gradient edges; collapse into a dropdown on narrow screens.
+
+Move larger settings sections into accordions inside Settings.
+
+Refactor CSS with variables and grouped layout rules.
+
+Performance & resilience
+
+Debounce saves to localStorage (300–750ms).
+
+Try/catch around localStorage; fall back to in-memory if blocked.
+
+Cache frequently used DOM references to avoid repeated queries.
+
+Developer ergonomics / structure
+
+Encapsulate generators in a modules object: modules.days, modules.months, modules.seasons, modules.time, modules.colors.
+
+Add // === MODULE: NAME === comment blocks for each new module.
+
+Add window.APP_DEBUG toggle for verbose logs and console smoke checks.
+
+Two-stage reveal & hinting
+
+Typing mode: revealHint() (first letter / article / short cue) and revealFull() (full answer).
+
+Single action mapping: Space = reveal hint (global or when typing not focused); Space again or RightArrow = full reveal/next.
+
+Unit-style smoke checks
+
+Startup assertions (log pass/fail):
+
+MODULES contains new modules.
+
+Each pool has ≥7 items where applicable.
+
+Keyboard shortcuts registered.
+
+Provide runAutomatedChecks() in Settings to run checks and display results.
+
+Small UX polish
+
+“Practice mix” slider to bias category weighting (non-destructive).
+
+CSS-only micro-animations for correct/incorrect feedback (optional: respect Reduce Motion setting).
+
+Implementation details (follow the app’s existing patterns)
+
+Module registration
+Add to MODULES:
+
+{ key: 'days', name: 'Days' },
+{ key: 'months', name: 'Months' },
+{ key: 'seasons', name: 'Seasons' },
+{ key: 'time', name: 'Time' },
+{ key: 'colors', name: 'Colors' }
+Implement per-module generateQuestion functions within a modules object following the style of existing generateVocabQuestion().
+
+Vocabulary
+Reuse and extend QUIZLET_VOCAB_BLOCK. Keep canonical spellings & diacritics. Use expandSlashVariants() and normalizeLoose() helpers for acceptable answers.
+
+Keyboard & IME handling
+Update window.addEventListener('keydown', ...) and register compositionstart/compositionend to avoid intercepting IME composition. Use document.activeElement to detect focused inputs.
+
+Storage
+Persist a single state object under spanish_app_v2_state containing settings, hiddenItems, and itemScores. Use a debounced saveState() that handles localStorage exceptions.
+
+Spaced repetition
+Implement a weighted sampler that biases toward lower score items.
+
+Reveal behavior
+Implement revealHint() and revealFull(); bind actions according to the two-stage reveal rules.
+
+Deliverable
+Single updated index 4.html file with:
+
+All code inline.
+
+Comment blocks marking each module and major change.
+
+A top-of-file “Changelog” comment summarizing main changes.
+
+Manual test checklist and runAutomatedChecks() button in Settings.
+
+Export / Import controls and Reset with Undo.
+
+Acceptance criteria (concrete)
+
+App runs in modern browsers with no uncaught console errors.
+
+New modules appear in Settings, are enable/disableable, and included in rotation (or practice-only).
+
+Keyboard shortcuts behave as described and do not interfere when typing or during IME composition.
+
+Spaced repetition bias works (lower-scored items appear more often).
+
+Export/Import, Reset (with Undo), and debounced localStorage saves operate correctly.
+
+Accessibility improvements implemented: Settings modal uses ARIA, focus is managed, shortcuts list is keyboard-accessible.
+
+runAutomatedChecks() logs readable pass/fail results and shows them in Settings.
+
+Two-stage reveal (hint then full) and the key-hint strip are present and functional.
+
+File contains clear module comment blocks and maintainable structure.
+
+Notes for implementation
+
+Keep new features opt-in where they might conflict with legacy behavior.
+
+Reuse existing helper functions; avoid wholesale rewrites.
+
+Add small, well-documented comment blocks explaining intent for each major addition.
+
+On conflicts, prefer safe, backward-compatible defaults and document choices in the top-of-file Changelog comment.
+
+Final instruction for Codex (run command)
+
+Open project file index 4.html.
+
+Apply the above changes.
+
+Save and overwrite index 4.html in the project workspace.
+
+After saving, produce a short top-of-file summary comment listing the main sections added/changed and the runAutomatedChecks() invocation instruction.
