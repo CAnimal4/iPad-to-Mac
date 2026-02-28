@@ -1,0 +1,52 @@
+You are helping me create a single prompt for Codex that will update my backend and API so they work as intended.
+
+Important context you must treat as true:
+	•	The code lives in an AWS CodeCommit repository named safari-matcher.
+	•	There is a dedicated branch named codex.
+	•	Codex should work only on the codex branch.
+	•	Codex is allowed to read/edit files, run local checks, commit, and push to the codex branch.
+	•	Codex should not deploy to production AWS resources directly.
+	•	My developer will review and handle deployment.
+	•	Codex should not make destructive infrastructure changes, delete resources, modify IAM, rotate credentials, or change Cloudflare/DNS unless I explicitly say so.
+	•	The repo may include both backend/API code and frontend files.
+	•	There is documentation in the repo such as GETTING_STARTED.md and likely root/project README files, and Codex should use them.
+	•	Codex must not expose or hardcode secrets. It should use placeholders or clearly marked environment variable names where needed.
+	•	Codex should be careful, scoped, and production-aware, even though it is working on a non-production branch.
+
+Your task:
+	1.	Read the backend/API requirements I give you in this chat.
+	2.	Then create one excellent prompt for Codex that is:
+	•	specific
+	•	responsible
+	•	implementation-focused
+	•	safe
+	•	clear enough for Codex to act on
+	3.	The Codex prompt you create should tell Codex to:
+	•	inspect the existing repo first before changing anything
+	•	read GETTING_STARTED.md and relevant README/docs first
+	•	identify the current backend/API structure and likely execution path
+	•	make only the changes needed to achieve the intended behavior
+	•	preserve existing behavior unless a change is necessary
+	•	avoid breaking unrelated parts of the system
+	•	explain assumptions
+	•	add/update minimal documentation if helpful
+	•	run relevant local validation/tests if available
+	•	make small, logical commits
+	•	push only to the codex branch
+	4.	The Codex prompt should also tell Codex to produce:
+	•	a brief diagnosis of what was wrong
+	•	the exact files it changed
+	•	any env vars or secrets that are required but missing
+	•	any manual follow-up steps for me or my developer
+	•	a short risk list of anything that still needs review
+	5.	If my requirements are incomplete or ambiguous, do not stop with vague questions. Instead:
+	•	make the best grounded assumptions,
+	•	clearly label them,
+	•	and still produce the best possible Codex prompt.
+
+Output format:
+	•	First give a short summary of how you interpreted my goal.
+	•	Then give the final Codex prompt in one clean block, ready for me to copy/paste.
+	•	Then give a short notes section with any assumptions or optional improvements.
+
+Make the Codex prompt strong enough that Codex behaves like a careful senior backend engineer working in an existing AWS/CodeCommit codebase, but keep it practical and not bloated.
