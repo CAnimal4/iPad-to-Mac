@@ -1,0 +1,68 @@
+Ad Name,Sora2_Length,Aspect_Ratio,Quality,FPS,What to Screen Record,Where to Post,Budget (test),CTA,Prompt,Targeting,Primary Metrics,Notes
+Pick. Match. Go.,15s,9:16 (1080x1920),high,30,"8–12s 'Choose Animals' flow: pick 3 animals, show matched card reveal; optional 4–6s founder clip","TikTok TopView, Instagram Reels, YouTube Shorts (vertical)",$600 / 10 days,Start your free match → /start-match (UTM),"Vertical 15s cinematic ad for SafariMatcher. Use referenced screen recording clip: 'choose_animals_clip.mp4'.
+Sequence:
+0–2s: Bold quick hook — cinematic wildlife clip (elephant silhouette) with upbeat percussion. On-screen text: 'Want a safari you actually love?'.
+2–8s: Cut to referenced screen recording. Animate an orange pulse around the cursor and highlight animals tapped. Add 2 animated labels: 'Pick animals' and 'See exact matches'. Subtle zoom-in on UI area. Add whoosh SFX on taps. Burn captions.
+8–12s: Quick b-roll of travelers in jeep watching sunset. Voiceover (AI or real): 'Pick the animals. Get matched. Book with confidence.' Burn captions.
+12–15s: Final CTA frame: logo, animated button 'Start your free match' and URL. End with 'No bias — real operator matches.'
+Instruction to Sora 2: Animate overlays on uploaded screen recording to show taps, pulsing CTA, and highlighted top-match card; generate synced audio and burned captions.","Age 20–45, interests: wildlife travel, safari; geos: US/UK/Australia/Canada; lookalikes after data","CTR, match_start CPA, VTR",Use real screen clip; captions required for muted viewers.
+Compare & Save,20s,16:9 (1920x1080),high,30,"10–15s of comparison results page: price columns, inclusions, filters being applied","Google Performance Max, YouTube Discovery (16:9)","$1,200 / 14 days",Request free quotes (lead form),"16:9, 20s explainer ad for SafariMatcher. Use referenced clip: 'comparison_clip.mp4'.
+0–3s: Problem opener—text: 'Comparing safari options is exhausting.' Quick montage of many tabs.
+3–12s: Cut to comparison_clip.mp4. Animate column highlights around price, nights, included meals. Add sliding filter UI narrowing results to family-friendly and price range. Use zoom/pan to focus.
+12–17s: Testimonial overlay: 'Saved 20% and found the perfect lodge' (use real testimonial if available). VO: 'Compare trusted safaris, request quotes — all in one place.'
+17–20s: Final CTA: 'Compare now — request free quotes' with URL and animated form field filling.
+Instruction: animate UI callouts over uploaded screen recording and animate a form auto-fill to show speed and simplicity. Burn captions and include trustworthy overlay: 'No hidden fees' if accurate.",Intent keywords + retarget site visitors; geos: US/UK/Australia,"Cost per lead (contact_submit), lead-to-booking rate",Only claim percentage savings if verified by client data; prefer real testimonials.
+Operator Value (Supply),25s,1:1 (1080x1080) and 4:5 (1080x1350),high,30,Operator page or mockup of operator dashboard (show leads/match notifications). Label mock numbers as 'example',"LinkedIn Sponsored Content, Meta for Business","$1,200 ($700 LinkedIn, $500 Meta) / 21 days",Request partnership / sign-up form,"Square 25s ad targeted to safari operators. Use referenced clip 'operator_dashboard_example.mp4'.
+0–3s: Headline: 'Get guests who actually want what you offer.'
+3–12s: Play operator_dashboard_example.mp4. Animate callouts showing 'Matched guests/month' clearly labeled 'example data' and an incoming-lead notification animation. Do NOT assert real revenue figures.
+12–20s: Show lodge staff welcoming guests. VO: 'Get guests who want what you offer.'
+20–25s: CTA: 'Join SafariMatcher — Request partnership' with URL and signup form animation.
+Instruction: animate overlays on operator dashboard; mark any mock numbers as examples; preserve truthful language.","Job titles: Owner, GM, Head of Sales; industries: tourism/hospitality; geos: Kenya, Tanzania, South Africa, Botswana","Operator contact requests, new listings added",Clear labeling of example data prevents misrepresentation.
+Complete Your Match (Retarget),15s,9:16 and 1:1,medium-high,30,Short clips showing start of match wizard and partial form; optional anonymized booking confirmation (blur PII),"Meta retargeting (Instagram, FB), YouTube retargeting",$500 / 14 days,Complete your match → return link,"Vertical 15s retargeting creative. Use referenced clips: 'partial_match1.mp4', 'booking_confirm_blur.jpg'.
+0–2s: UI flash text: 'You started a match—finish to get quotes.'
+2–9s: Play partial_match1.mp4. Animate pointer to next field to fill, add an animated progress bar showing '80% complete'. Add text overlay: 'It only takes 60 seconds.'
+9–13s: Show booking_confirm_blur.jpg briefly with a 5-star badge overlay and text: 'Trusted operators. Real quotes.'
+13–15s: CTA: 'Complete match → Get free quotes' with tappable button animation and URL. Burn captions.
+Instruction: animate overlays indicating progress and highlight CTA on screen recording.",Visitors who started match but didn't submit in 7–30 days,"Recovered contact_submit conversions, CPA",Use frequency caps; keep messaging gentle and helpful.
+Animals First (Emotional),15s,9:16,cinematic,30,6–10s of 'choose animals' interaction plus any royalty-free wildlife clips you own,"TikTok, Reels, YouTube Shorts",$700 / 10 days,Pick your animals → Start match,"Vertical 15s fast-cut animal montage + product demo. Use referenced clips 'animals_pick_clip.mp4' and 'wildlife_broll.mp4'.
+0–5s: Rapid animal montage (lion, elephant, giraffe) timed to rhythmic percussion. On-screen text: 'Which animal do you HAVE to see?'
+5–10s: animals_pick_clip.mp4. Animate a glowing ring around selected animals and a bold 'Top Match' stamp that stamps onto the matched card.
+10–15s: CTA: 'Pick your animals. We'll find the trip.' Animated tap-to-site motion and logo. Burn captions and include short VO line.
+Instruction: use animated stamp, glow, and whoosh SFX over the screen recording; ensure audio and captions are synced.","Wildlife enthusiasts, ages 18–40; lookalikes of engagers","Engagement, CTR to match_start",Use strong visual cuts; ensure rights to wildlife clips.
+Micro-Testimonial Carousel,3 x 8–10s clips,vertical or square,medium-high,30,3 short customer testimonial clips (5–8s each) or photos with permission,"Meta Carousel, Stories, Instagram",$400 / 14 days,Request quotes (contact_submit),"Create three separate 8–10s testimonial clips. Use referenced testimonial clips/images.
+Each clip:
+0–2s: Quick on-screen customer name & location (if permission granted).
+2–7s: Short testimonial line (text overlay and VO): e.g. 'We saw all the Big Five — and the guides were amazing.'
+7–8s: CTA frame: 'Request quotes — free' with URL.
+Instruction: animate subtle slide-in captions and add soft background music. Ensure testimonials are truthful and permission is granted for names/photos.",Retarget site visitors + lookalikes of bookers,"Lead quality, conversion rate from testimonial viewers",Do not invent testimonials; get written consent for names/photos.
+Countdown Deal (Flash),15s,9:16,high,30,Deals page or limited_spots banner; show only real deals or switch to 'limited spots' language,"TikTok, Meta feed & Stories",$500 / 7 days,Request quote / Book now,"Vertical 15s urgency ad. Use referenced clip 'deals_page.mp4' or 'limited_spots_banner.mp4'.
+0–3s: Hook: 'Limited spots for prime-season safaris' (only if accurate).
+3–10s: Show deals_page.mp4. Animate countdown timer overlay and highlight 'Request quote' button with pulsing animation.
+10–15s: CTA: 'Secure your spot — Request quote' with URL.
+Instruction: ensure numeric discount or availability claims are accurate; animate overlays showing CTA and timer.",Warm audiences + high-intent keywords,"Conversion rate, CPA",Avoid false scarcity; include exact end-date if making time-limited claims.
+How It Works (Matching Explanation),25s,16:9 (1920x1080),high,30,"Full matching flow: choose animals, prioritize, view curated matches (6–15s)","YouTube Discovery, LinkedIn, Facebook",$700 / 14 days,Try the match (match_start),"16:9 25s explainer. Use referenced UX clip 'matching_flow.mp4'.
+0–6s: Intro text: 'How SafariMatcher finds your perfect safari' with quick b-roll.
+6–18s: Play matching_flow.mp4. Add animated labels: 'Choose animals → Select priorities → See curated matches.' Use animated arrows and brief text callouts. VO: 'We match you to operators who list the animals and amenities you care about.'
+18–25s: CTA: 'Try the match — it’s free' with URL and short testimonial overlay.
+Instruction: animate callouts over UI; avoid guaranteeing outcomes; describe the process clearly and truthfully.","Users searching 'best safari for wildlife', visited results pages","match_start rate, time on site",Clear process reduces friction; captions required.
+Local Experts (Localized),15s per market,9:16 (produce localized versions),high,30,"Operator profiles or local guide intros per market, with permissions","Meta & TikTok with geo-targeting per market (e.g., Germany, UK, Australia)",$600 across 2+ markets / 14 days,Start your local match,"Vertical 15s localized ad. Use referenced clip 'local_guides_page.mp4'.
+0–4s: Hook with local music/ambiance and caption adapted to market language.
+4–10s: Play local_guides_page.mp4. Animate guide profile cards sliding in and highlight 'guide specialties' (animals, private safari).
+10–15s: CTA in local language: 'Start your local match' with URL. Include localized VO (AI) and burned captions.
+Instruction: animate overlays for specialties and use accurate translations; ensure consent for guide clips.",Geo-targeted audiences per market; local-language creatives,"Country-specific conversion rates, CPA",Accurate translations and voiceovers required.
+Booking Confidence (Reassurance),15–20s,9:16 and 16:9 versions,high,30,"Booking pathway, refund/cancellation policy snippets (blur sensitive bits); operator verification steps if any","Meta, YouTube in-stream",$600 / 14 days,Request quotes — compare terms & book confidently,"Multi-aspect 15–20s ad. Use referenced clips 'booking_path.mp4' and 'policy_snippet_blur.jpg'.
+0–4s: Text: 'Worried about booking with confidence?' with calming b-roll.
+4–14s: Play booking_path.mp4. Animate reassuring badges overlay: 'Verified operators', 'Secure payments' — only show badges if verifiable. If not, use 'Operator review process' language.
+14–20s: CTA: 'Request quotes — compare terms & book confidently' with URL and short VO. Burn captions.
+Instruction: animate badges and policy highlights; do not overstate guarantees; keep claims truthful.",Users who added dates or viewed operator contact pages,"booking_clicks, lead-to-booking rate",Ensure accuracy for any verification or secure payment claims.
+"All-in-One Hybrid: Real Traveler, Real Safari — No Bias",25s (create 9:16 and 16:9 versions),9:16 (1080x1920) and 16:9 (1920x1080),high,30,"1) Real customer testimonial 12–15s (face, real audio) 2) Screen recording 6–10s of matching flow 3) Optional 'before' frustrated tabs clip","Vertical: TikTok, Reels, Shorts. Horizontal: YouTube in-stream, Meta feed, Google Video","$1,500 total (e.g., $800 vertical + $700 horizontal) / 14 days",Start your free match → safarimatcher.com/start-match,"Hybrid testimonial + demo ad for SafariMatcher.
+Use referenced clips:
+ - customer_testimonial.mp4 (real recorded video)
+ - safari_ui_demo.mp4 (screen recording)
+Total length: 25 seconds.
+0–3s: Montage of frustrated traveler tabs, on-screen text: 'Tired of biased safari ads & hidden fees?' VO (real customer off-camera): 'We tried 5 different safari sites — all pushing their own lodges.'
+3–8s: Cut to customer_testimonial.mp4. Show name/location if consented. Customer real audio: 'I told SafariMatcher the animals we HAD to see... and got 3 perfect safari options — no hidden fees, no bias.' Burn captions.
+8–15s: Cut to safari_ui_demo.mp4. Animate UI overlays: highlight animals picked, filters used, matched card with price/inclusions. Add animated labels: 'You choose → We match → You contact operator.' Add whoosh SFX on taps.
+15–22s: Benefit reinforcement overlay: 'Real reviews. Verified operators. Fair pricing.' VO: 'We found the perfect lodge, with what we wanted — no upsells.'
+22–25s: Final CTA: logo + button 'Start your match — it's free' and URL. Burn captions and include subtle ambient safari audio under testimonial.
+Instruction to Sora 2: preserve real customer audio; animate overlays on uploaded screen recording; generate both vertical 9:16 and horizontal 16:9 versions from same script.","Broad lookalikes, travel interests; video engagers; geos: US/UK/Australia/Canada/EU","CTR, match_start, contact_submit, CPA",Use an actual customer testimonial recorded by you or real user with consent; do not fabricate audio. This is the flagship hero asset.
