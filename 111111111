@@ -1,0 +1,59 @@
+Build a minimal MVP web app called DrawNest.
+
+Goal:
+Create a single-page, ultra-simple drawing critique tool to test demand. Do NOT build a full product. Keep everything minimal.
+
+Core flow:
+1. User uploads an image
+2. User selects a goal (realistic, simple, detailed, elegant, playful, less cluttered, more 3D, better shading)
+3. User clicks "Analyze"
+4. App returns:
+   - 1 sentence summary
+   - 3–5 actionable improvements
+   - Each improvement must include:
+     - what is happening
+     - why it matters
+     - the smallest easy fix
+
+Constraints:
+- No accounts
+- No database (unless used for caching only)
+- No payments
+- No ads
+- No image generation
+- No voice output
+- Keep everything extremely simple
+
+Tech stack:
+- Next.js (App Router) + TypeScript
+- Tailwind CSS
+- Vercel deployment
+- Next.js API route for analysis
+
+Cost control:
+- Resize uploaded images to max 512px
+- Use a simple rules-first system:
+  - brightness/contrast estimation
+  - edge density (too messy vs too simple)
+  - center vs off-center composition
+  - basic clutter detection
+- Then send a single API call to generate human-readable feedback
+
+API behavior:
+- Input: rules output + user goal
+- Output: structured critique (short, clear, beginner-friendly)
+
+UI:
+- One page only
+- Upload box
+- Goal selector dropdown
+- Analyze button
+- Output card
+- Clean, minimal, lots of whitespace
+
+Extra:
+- Add simple loading state
+- Add error handling
+- Cache repeated results in memory or lightweight storage
+
+Return production-ready code, no placeholders.
