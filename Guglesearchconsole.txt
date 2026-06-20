@@ -1,0 +1,4 @@
+1. Copy the meta tag below, and paste it into your site's home page. It should go in the <head> section, before the first <body> section.
+<meta name="google-site-verification" content="WtCR9KD5xEWTG2HeH-qKTCBdFAY0A-a9D2HESMu0bSU" />
+2. Click Verify below.
+To stay verified, don't remove the meta tag, even after verification succeeds.
