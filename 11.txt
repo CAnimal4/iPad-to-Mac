@@ -1,0 +1,308 @@
+get this ready to use, lemme know if you need me to do anything:
+
+
+
+
+You are building a production-quality AI-powered eBay listing automation system for a summer project.
+
+The goal:
+A user uploads photos + a rough description of household/vintage items. The system intelligently:
+- identifies the item
+- estimates condition
+- lightly improves photos
+- researches pricing
+- decides auction vs buy-it-now
+- generates optimized eBay listings
+- optionally auto-publishes them to eBay
+- works asynchronously over hours/days if needed
+- supports AI computer-use/browser automation when APIs fail
+
+The stack MUST prioritize:
+- Cloudflare Workers
+- Cloudflare Durable Objects
+- Cloudflare Queues
+- Cloudflare R2
+- OpenAI APIs
+- OpenAI Codex
+- TypeScript
+- eBay Sell APIs
+- Playwright for browser automation fallback
+- modern clean frontend
+- minimal operational complexity
+- low cost
+- resumable workflows
+- agentic orchestration
+
+The app should be architected so it can continuously process many items autonomously.
+
+====================================================
+HIGH LEVEL PRODUCT BEHAVIOR
+====================================================
+
+User flow:
+1. User uploads item photos
+2. User optionally enters rough notes
+3. System creates item job
+4. AI analyzes item
+5. AI improves images conservatively
+6. AI researches pricing
+7. AI determines:
+   - category
+   - condition
+   - auction vs BIN
+   - shipping strategy
+   - promotion %
+   - timing
+8. AI drafts optimized listing
+9. User can:
+   - approve manually
+   - or enable trusted auto-publish mode
+10. System publishes to eBay
+11. System tracks listing performance
+
+The system must support:
+- long-running async workflows
+- retries
+- human approval gates
+- confidence scoring
+- resumability
+- audit logging
+- item history
+
+====================================================
+IMPORTANT PRODUCT REQUIREMENTS
+====================================================
+
+VERY IMPORTANT:
+This system is for REAL eBay selling.
+
+Do NOT:
+- fake item conditions
+- hallucinate brands/models
+- remove scratches/defects from images
+- generate misleading claims
+- create fake authenticity claims
+
+Image editing must:
+- crop
+- straighten
+- normalize lighting
+- simplify background
+- preserve defects honestly
+
+Collectibles/vintage items should preserve authenticity.
+
+====================================================
+TECHNICAL REQUIREMENTS
+====================================================
+
+Build using:
+
+Frontend:
+- Next.js or lightweight React frontend
+- hosted via Cloudflare
+- drag-and-drop upload UI
+- item dashboard
+- review queue
+- listing history
+
+Backend:
+- Cloudflare Workers
+- Durable Objects for item state orchestration
+- Cloudflare Queues for async processing
+- R2 for image storage
+- D1 or Supabase for metadata
+
+AI:
+- OpenAI Responses API
+- vision-capable models
+- Codex-compatible workflows
+- structured JSON outputs
+- tool-calling architecture
+
+Browser automation:
+- Playwright
+- only used when APIs fail or for unsupported flows
+
+eBay:
+- official Sell APIs preferred
+- Inventory API
+- Offer API
+- Trading API only if needed
+
+====================================================
+ARCHITECTURE REQUIREMENTS
+====================================================
+
+Design the system as an agent pipeline.
+
+Each item should have:
+- item_id
+- workflow state
+- confidence score
+- extracted attributes
+- pricing data
+- generated assets
+- approval status
+- publish status
+
+Pipeline stages:
+1. intake
+2. OCR/text extraction
+3. item identification
+4. condition analysis
+5. image cleanup
+6. pricing research
+7. strategy decision
+8. listing generation
+9. approval
+10. publish
+11. monitoring
+
+Use queues between stages.
+
+Durable Objects should:
+- manage workflow state
+- coordinate retries
+- prevent duplicate publishes
+- lock concurrent updates
+
+====================================================
+AI BEHAVIOR REQUIREMENTS
+====================================================
+
+The AI system should:
+- reason carefully
+- avoid hallucinations
+- cite uncertainty internally
+- ask for review when uncertain
+- compare sold listings
+- estimate market demand
+- decide auction vs BIN intelligently
+
+Examples:
+- common commodity item → buy it now
+- rare collectible with active bidding market → auction
+- niche slow-moving collectible → BIN + Best Offer
+
+The AI should generate:
+- SEO-optimized title
+- detailed description
+- item specifics
+- suggested category
+- pricing recommendations
+- shipping recommendations
+- eBay policy settings
+
+====================================================
+LONG RUNNING AGENT REQUIREMENTS
+====================================================
+
+The system must support:
+- workflows running for hours/days
+- pausing and resuming
+- queue retries
+- dead letter queues
+- scheduled tasks
+- monitoring jobs
+- automatic backoff
+- human intervention
+
+Implement:
+- durable state recovery
+- job progress tracking
+- event logs
+- structured telemetry
+
+====================================================
+COMPUTER USE / AGENT MODE
+====================================================
+
+Add optional “computer use mode”.
+
+If enabled:
+- AI agent can operate browser via Playwright
+- navigate eBay seller UI
+- recover from API failures
+- complete unsupported flows
+
+The agent must:
+- take screenshots
+- log actions
+- confirm critical actions
+- avoid accidental publishes
+- retry safely
+
+====================================================
+FRONTEND REQUIREMENTS
+====================================================
+
+The frontend should include:
+- upload interface
+- processing progress UI
+- item review dashboard
+- side-by-side original vs cleaned images
+- approval queue
+- publish status
+- pricing explanation
+- confidence explanation
+
+UI style:
+- modern
+- clean
+- dark mode
+- responsive
+- fast
+
+====================================================
+DEVELOPER EXPERIENCE
+====================================================
+
+Generate:
+- clean architecture
+- TypeScript types
+- modular services
+- environment variable handling
+- setup scripts
+- local dev environment
+- deployment instructions
+- README
+- example env files
+- migration scripts
+
+====================================================
+DELIVERABLES
+====================================================
+
+Generate:
+1. Full architecture
+2. Folder structure
+3. Cloudflare configuration
+4. Database schema
+5. Queue definitions
+6. Durable Object design
+7. AI prompt templates
+8. eBay integration layer
+9. Playwright automation layer
+10. Frontend pages/components
+11. Deployment instructions
+12. Security considerations
+13. Cost optimization strategy
+14. Error handling strategy
+15. Retry strategy
+16. Monitoring/logging setup
+
+Then:
+- implement the codebase
+- scaffold all major files
+- generate working MVP functionality
+- prioritize correctness and maintainability
+- keep everything production-grade but lean
+
+The system should feel like:
+“upload photos and let the AI run the entire eBay listing operation.”
+
+Use best engineering practices.
+Use async workflows heavily.
+Use structured outputs everywhere.
+Avoid overengineering.
