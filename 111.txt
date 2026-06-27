@@ -1,0 +1,130 @@
+Extend the existing DrawNest Next.js project with SEO + distribution + sharing improvements.
+
+GOAL:
+Fix lack of traffic by improving:
+- Google indexing potential
+- landing page entry points
+- shareability of results
+- clearer “searchable pages”
+
+DO NOT:
+- add accounts
+- add payments
+- change core AI system
+- increase API usage cost
+- add complexity to backend
+
+---
+
+TASK 1 — Create SEO landing page
+
+Create a new page:
+
+/app/drawing-feedback/page.tsx
+
+This page must:
+- Be optimized for Google search
+- Target keywords:
+  - free drawing feedback
+  - improve sketches online
+  - drawing critique tool
+  - art improvement tool
+- Include:
+  - Clear headline
+  - Short explanation of tool
+  - Step-by-step "how it works"
+  - Example critique (static mock example)
+  - CTA button linking to main app (/)
+
+This page should be simple HTML + Tailwind, no complex logic.
+
+---
+
+TASK 2 — Improve homepage SEO metadata
+
+Update main layout or homepage:
+
+Add:
+- Title:
+  "Free Drawing Feedback Tool | Improve Your Sketches Instantly"
+
+- Meta description:
+  "Upload a drawing and get instant feedback on shading, composition, and detail to improve your art skills."
+
+Ensure proper Next.js metadata usage.
+
+---
+
+TASK 3 — Add Shareable Result Feature (IMPORTANT)
+
+In the results UI after a critique is generated:
+
+Add a button:
+
+"Copy Result"
+
+When clicked:
+- Copy formatted text to clipboard:
+
+Format:
+
+"I improved my drawing using DrawNest:
+
+- [tip 1]
+- [tip 2]
+- [tip 3]
+
+Try it here: [your domain]"
+
+Replace with actual generated feedback dynamically.
+
+Must use navigator.clipboard.writeText.
+
+---
+
+TASK 4 — Add “Entry Point Pages”
+
+Create a second simple SEO page:
+
+/app/how-to-improve-drawings/page.tsx
+
+This page should:
+- Be informational (not app UI)
+- Explain common problems:
+  - flat shading
+  - bad proportions
+  - messy composition
+- Include CTA button to main app
+- Must be indexable by Google
+
+---
+
+TASK 5 — Improve discoverability structure
+
+Ensure:
+- Both SEO pages are linked from homepage
+- Add simple footer links:
+  - "Free Drawing Feedback"
+  - "How to Improve Drawings"
+
+---
+
+TASK 6 — Add basic structured headings for SEO
+
+On homepage:
+- Use proper H1, H2 tags
+- Ensure keywords appear naturally in headings
+- Avoid keyword stuffing
+
+---
+
+CONSTRAINTS:
+- Keep UI minimal and clean
+- No new APIs or external services
+- No authentication
+- No database changes
+- Keep performance fast
+- Do not increase OpenAI calls
+
+OUTPUT:
+Return updated production-ready Next.js code with new pages and updated homepage.
